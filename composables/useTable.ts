@@ -11,10 +11,14 @@ export function useTable(tableOrName?: TableConfig) {
             return;
         }
 
-        const fullCacheKey = `table_cache_${tableName}`;
-
         try {
-            sessionStorage.removeItem(fullCacheKey);
+            const prefix = `full_table_${tableName}`
+            for (const key of Object.keys(sessionStorage)) {
+                if (key === prefix || key.startsWith(prefix + '_')) {
+                    sessionStorage.removeItem(key)
+                }
+            }
+            sessionStorage.removeItem(`table_cache_${tableName}`)
         } catch (error) {
             console.warn('[useTable] Error invalidating cache:', error);
         }
