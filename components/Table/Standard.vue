@@ -281,13 +281,21 @@ watch(previewRow, async (row) => {
 })
 
 const handleRowClick = (row) => {
-  if (previewEnabled.value) {
-    if (previewRow.value?.id === row.id) return  // ya está abierto, no pestañear
-    collapseDock()
-    previewRow.value = row
-  } else {
+  if (!previewEnabled.value) {
     emit('row-click', row)
+    return
   }
+
+  // Si la misma fila ya tiene el preview abierto, no hacer nada.
+  // Comparación stringificada para tolerar mismatch de tipo (string vs number).
+  const currentId = previewRow.value?.id
+  const incomingId = row?.id
+  if (currentId != null && incomingId != null && String(currentId) === String(incomingId)) {
+    return
+  }
+
+  collapseDock()
+  previewRow.value = row
 }
 
 // Persist preview row in session cache when table cache is enabled
@@ -715,7 +723,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
     </div>
 
     <!-- Tabla -->
-    <div class="overflow-hidden border-t border-b border-card-line">
+    <div class="overflow-hidden border border-card-line rounded-xl">
       <Table
         ref="tableRef"
         :endpoint="resolvedEndpoint"
