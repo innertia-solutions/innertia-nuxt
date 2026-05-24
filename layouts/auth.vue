@@ -55,7 +55,9 @@ const branding = computed(() => appConfig.innertia?.branding ?? { name: 'Innerti
       <div class="flex flex-1 items-center justify-center px-6 py-10">
         <div class="w-full max-w-sm">
           <Transition name="auth-content" mode="out-in">
-            <slot />
+            <div :key="$route.fullPath">
+              <slot />
+            </div>
           </Transition>
         </div>
       </div>
