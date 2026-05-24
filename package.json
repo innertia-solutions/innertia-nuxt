@@ -21,7 +21,7 @@
   "main": "./nuxt.config.ts",
   "exports": {
     ".": "./nuxt.config.ts",
-    "./spark.css": "./spark.css"
+    "./theme.css": "./theme.css"
   },
   "peerDependencies": {
     "nuxt": ">=4.0.0",

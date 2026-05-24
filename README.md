@@ -2,11 +2,11 @@
 
 Capa Nuxt unificada de Innertia Solutions. Provee en un solo paquete:
 
-- **Core** — composables base (useApi, useDate, useDevice, useDownload, useRealtime, etc.) + plugin pusher + SEO
-- **App** — auth (JWT), contextos, permisos, vue-query, stores de notifications/auth, middlewares `auth`/`guest`
-- **Saas** — multitenancy por subdomain (`X-Tenant` header, validación de tenant, store de tenant)
-- **Spark** — design system: components, layouts, theme Tailwind, Preline, Tabler icons
-- **Contexts** — apps multi-contexto (backoffice/teacher/technician...), mobile guard configurable
+- **Utilities** — composables base (useApi, useDate, useDevice, useDownload, useRealtime, etc.) + plugin pusher + SEO
+- **Auth** — JWT, contextos, permisos, vue-query, stores de notifications/auth, middlewares `auth`/`guest`
+- **Multitenancy** — multi-tenant por subdomain (`X-Tenant` header, validación de tenant, store de tenant)
+- **Design system** — components, layouts, theme Tailwind, Preline, Tabler icons, tema configurable
+- **App contexts** — apps multi-contexto (backoffice/teacher/technician...), mobile guard configurable
 
 ## Uso
 
@@ -18,17 +18,19 @@ pnpm add @innertia-solutions/innertia-nuxt
 // nuxt.config.ts
 export default defineNuxtConfig({
   extends: ['@innertia-solutions/innertia-nuxt'],
-  css: ['@innertia-solutions/innertia-nuxt/spark.css'],
+  css: ['@innertia-solutions/innertia-nuxt/theme.css'],
 
   appConfig: {
     innertia: {
       mode: 'saas', // 'saas' (default) | 'app'
 
       branding: { name: 'MyApp', version: '1.0.0' },
+
       // Tema Preline — define el "feel" completo (paleta neutral, dark mode tone).
       // Ver https://preline.co/docs/themes.html
       theme: 'moon',  // 'default' | 'harvest' | 'retro' | 'ocean' | 'autumn' | 'moon' | 'bubblegum' | 'cashmere' | 'olive'
-      // Override del brand color del tema
+
+      // Override del brand color del tema (opcional)
       colors: { primary: 'violet', secondary: 'slate' },
 
       apps: {
@@ -46,8 +48,6 @@ export default defineNuxtConfig({
 
       mobile: { breakpoint: 1024, rememberChoice: true },
     },
-
-    spark: { theme: 'default' },
   },
 })
 ```

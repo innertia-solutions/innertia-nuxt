@@ -11,7 +11,7 @@ const isOpen = ref(false)
 const open  = () => { isOpen.value = true }
 const close = () => { isOpen.value = false }
 
-provide('spark:sidebar', { isOpen, open, close })
+provide('innertia:sidebar', { isOpen, open, close })
 
 const userInitial = computed(() =>
   props.user?.name?.charAt(0).toUpperCase() ?? props.user?.email?.charAt(0).toUpperCase() ?? 'U'

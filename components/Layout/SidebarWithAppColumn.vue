@@ -48,7 +48,7 @@ const emit = defineEmits<{ logout: [] }>()
 const isOpen = ref(false)
 const open  = () => { isOpen.value = true }
 const close = () => { isOpen.value = false }
-provide('spark:sidebar', { isOpen, open, close })
+provide('innertia:sidebar', { isOpen, open, close })
 
 // ─── Route matching ───────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@ defineProps<{
   title?: string
 }>()
 
-const sidebar = inject('spark:sidebar', null) as any
+const sidebar = inject('innertia:sidebar', null) as any
 </script>
 
 <template>
