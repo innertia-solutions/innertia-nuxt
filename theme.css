@@ -1,5 +1,19 @@
 @import "tailwindcss";
 @import "preline/variants.css";
+
+/* Tailwind v4 — escanea las plantillas de la propia librería para generar
+   las utility classes que estos archivos usan. Sin esto, las clases como
+   `bg-navbar-inverse`, `text-foreground`, etc. NO se generan en el bundle
+   del consumer porque Tailwind no detecta automáticamente código dentro
+   de node_modules. */
+@source "./components/**/*.{vue,ts,js}";
+@source "./layouts/**/*.{vue,ts,js}";
+@source "./pages/**/*.{vue,ts,js}";
+@source "./composables/**/*.{ts,js}";
+@source "./plugins/**/*.{ts,js}";
+@source "./middleware/**/*.{ts,js}";
+@source "./error.vue";
+
 @import "./css/themes/harvest.css";
 @import "./css/themes/retro.css";
 @import "./css/themes/ocean.css";
