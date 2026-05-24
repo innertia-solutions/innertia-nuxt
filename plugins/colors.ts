@@ -1,39 +1,42 @@
-import type { ColorOption, ColorScale, DarkTone } from '../app.config'
+import type { ColorOption, ColorScale, PrelineTheme } from '../app.config'
 
 const SCALE_LEVELS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const
 
 /**
- * Aplica las CSS vars de theming desde `appConfig.innertia`:
- *   - `colors.primary` y `colors.secondary` → --primary-{50..950}, --secondary-{50..950}
- *   - `darkTone` → reemplaza el neutral default en modo dark (backgrounds, borders, surfaces)
+ * Aplica el theming completo desde `appConfig.innertia`:
+ *   - `theme`             → setea `data-theme="theme-{name}"` en <html> (Preline themes)
+ *   - `colors.primary`    → override del brand color del tema → --primary-{50..950}
+ *   - `colors.secondary`  → --secondary-{50..950}
  *
- * Funciona en SSR (inyecta <style> en head) y cliente.
+ * Funciona en SSR (inyecta <style> + htmlAttrs en head) y cliente.
  *
- * colors acepta:
+ * `colors.primary/secondary` acepta:
  *   - Nombre Tailwind: 'violet' → mapea a var(--color-violet-50..950)
  *   - Scale custom: { 50: '#f5f3ff', ..., 950: '#2e1065' }
  *
- * darkTone acepta:
- *   'neutral' | 'slate' | 'gray' | 'zinc' | 'stone'
+ * El "tono dark" se controla via `theme` — cada tema Preline incluye su propia
+ * paleta neutral para light y dark. Ej. `theme: 'moon'` da un dark grisáceo elegante.
  */
 export default defineNuxtPlugin(() => {
   const appConfig = useAppConfig()
+  const theme = appConfig.innertia?.theme as PrelineTheme | undefined
   const colors = appConfig.innertia?.colors as { primary?: ColorOption; secondary?: ColorOption } | undefined
-  const darkTone = appConfig.innertia?.darkTone as DarkTone | undefined
 
-  const css: string[] = []
+  // ── Aplicar tema Preline via data-theme ─────────────────────────────────
+  if (theme && theme !== 'default') {
+    useHead({ htmlAttrs: { 'data-theme': `theme-${theme}` } })
+  }
 
-  if (colors) css.push(buildColorCSS(colors))
-  // Solo aplicar override si el producto eligió algo distinto del default
-  if (darkTone && darkTone !== 'neutral') css.push(buildDarkToneCSS(darkTone))
-
-  if (css.length === 0) return
+  // ── Aplicar overrides de primary/secondary via <style> ───────────────────
+  if (!colors || (!colors.primary && !colors.secondary)) return
+  const css = buildColorCSS(colors)
+  if (!css) return
 
   useHead({
     style: [
       {
         id: 'innertia-colors',
-        children: css.join('\n'),
+        children: css,
       },
     ],
   })
@@ -51,63 +54,6 @@ function buildColorCSS(colors: { primary?: ColorOption; secondary?: ColorOption 
 
   lines.push('}')
   return lines.join('\n')
-}
-
-/**
- * Genera overrides para modo dark reemplazando el `neutral` default por el tono elegido.
- * Cubre backgrounds, foregrounds, borders, layers, surfaces y cards — todos los lugares
- * donde el theme.css base usa `--color-neutral-*` en `.dark`.
- *
- * Por especificidad, `.dark` aquí gana sobre `.dark` en theme.css porque se inyecta
- * después en el head (last-declared wins).
- */
-function buildDarkToneCSS(tone: DarkTone): string {
-  return `.dark {
-  --background: var(--color-${tone}-800);
-  --background-1: var(--color-${tone}-900);
-  --background-2: var(--color-${tone}-900);
-  --background-plain: var(--color-${tone}-950);
-  --foreground: var(--color-${tone}-200);
-  --foreground-inverse: var(--color-white);
-  --inverse: var(--color-${tone}-950);
-  --border: var(--color-${tone}-700);
-  --border-line-1: var(--color-${tone}-800);
-  --border-line-2: var(--color-${tone}-700);
-  --border-line-3: var(--color-${tone}-600);
-  --layer: var(--color-${tone}-800);
-  --layer-line: var(--color-${tone}-700);
-  --layer-hover: var(--color-${tone}-700);
-  --layer-focus: var(--color-${tone}-700);
-  --layer-active: var(--color-${tone}-700);
-  --surface: var(--color-${tone}-700);
-  --surface-1: var(--color-${tone}-600);
-  --surface-2: var(--color-${tone}-500);
-  --surface-3: var(--color-${tone}-600);
-  --muted: var(--color-${tone}-700);
-  --muted-foreground: var(--color-${tone}-400);
-  --muted-foreground-1: var(--color-${tone}-300);
-  --muted-hover: var(--color-${tone}-600);
-  --card: var(--color-${tone}-800);
-  --card-line: var(--color-${tone}-700);
-  --card-divider: var(--color-${tone}-700);
-  --card-header: var(--color-${tone}-700);
-  --card-footer: var(--color-${tone}-700);
-  --dropdown: var(--color-${tone}-800);
-  --dropdown-line: var(--color-${tone}-700);
-  --dropdown-divider: var(--color-${tone}-700);
-  --dropdown-item-hover: var(--color-${tone}-700);
-  --dropdown-item-foreground: var(--color-${tone}-200);
-  --tooltip: var(--color-${tone}-100);
-  --tooltip-foreground: var(--color-${tone}-900);
-  --navbar: var(--color-${tone}-900);
-  --navbar-line: var(--color-${tone}-800);
-  --navbar-divider: var(--color-${tone}-800);
-  --navbar-nav-foreground: var(--color-${tone}-300);
-  --navbar-nav-hover: var(--color-${tone}-800);
-  --navbar-nav-active: var(--color-${tone}-700);
-  --sidebar: var(--color-${tone}-900);
-  --sidebar-line: var(--color-${tone}-800);
-}`
 }
 
 function buildRoleVars(role: 'primary' | 'secondary', value: ColorOption): string[] {

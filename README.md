@@ -25,8 +25,11 @@ export default defineNuxtConfig({
       mode: 'saas', // 'saas' (default) | 'app'
 
       branding: { name: 'MyApp', version: '1.0.0' },
+      // Tema Preline — define el "feel" completo (paleta neutral, dark mode tone).
+      // Ver https://preline.co/docs/themes.html
+      theme: 'moon',  // 'default' | 'harvest' | 'retro' | 'ocean' | 'autumn' | 'moon' | 'bubblegum' | 'cashmere' | 'olive'
+      // Override del brand color del tema
       colors: { primary: 'violet', secondary: 'slate' },
-      darkTone: 'slate',  // 'neutral' (default) | 'slate' | 'gray' | 'zinc' | 'stone'
 
       apps: {
         backoffice: {

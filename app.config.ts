@@ -30,29 +30,40 @@ export default defineAppConfig({
     },
 
     /**
-     * Colores primario y secundario. Acepta:
+     * Tema Preline. Cada tema define el "feel" completo (paleta neutral, fondos,
+     * bordes, sombras) tanto en light como en dark mode. Es el equivalente a
+     * "darkTone" pero más expresivo — distintos temas tienen distintos tonos.
+     *
+     * Cada tema viene con un brand color default (puedes overridearlo con `colors.primary`):
+     *   - 'default'   → blue   (neutral, profesional)
+     *   - 'harvest'   → amber  (cálido, tierra)
+     *   - 'retro'     → fuchsia (vibrante, ochenta)
+     *   - 'ocean'     → cyan   (frío, acuático)
+     *   - 'autumn'    → yellow (otoñal)
+     *   - 'moon'      → gray   (gris, dark-friendly elegante)
+     *   - 'bubblegum' → pink   (suave, juvenil)
+     *   - 'cashmere'  → mauve  (cálido morado)
+     *   - 'olive'     → avocado (verde tierra)
+     *
+     * Ver https://preline.co/docs/themes.html para preview de cada uno.
+     */
+    theme: 'default' as PrelineTheme,
+
+    /**
+     * Colores primario y secundario. Overridean el brand color default del tema.
+     * Acepta:
      *   - Nombre de color de Tailwind (string): 'violet', 'indigo', 'emerald', etc.
      *   - Scale custom (object): { 50: '#f5f3ff', ..., 950: '#2e1065' }
+     *
+     * Si no se declara, se usa el brand color default del `theme` elegido.
      *
      * El plugin `colors` aplica estos valores a las CSS vars `--primary-{50..950}`
      * y `--secondary-{50..950}` en SSR y cliente.
      */
     colors: {
-      primary: 'blue' as ColorOption,
-      secondary: 'slate' as ColorOption,
+      primary: undefined as ColorOption | undefined,
+      secondary: undefined as ColorOption | undefined,
     },
-
-    /**
-     * Tono neutral usado en modo dark (backgrounds, borders, surfaces).
-     * Cambia el "feel" del modo oscuro sin tocar el color de marca.
-     *
-     *   - 'neutral' (default) → gris puro, neutral
-     *   - 'slate'             → gris con leve tinte azul (más frío)
-     *   - 'gray'              → gris levemente más cálido que slate
-     *   - 'zinc'              → gris cálido
-     *   - 'stone'             → gris muy cálido (con tinte tierra)
-     */
-    darkTone: 'neutral' as DarkTone,
 
     /**
      * Contenido del panel marketing del layout `auth`. Si no se declara, el panel queda vacío.
@@ -120,8 +131,17 @@ export type AppMobileMode = 'allow' | 'block' | 'redirect'
 export type ColorScale = Partial<Record<50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 950, string>>
 export type ColorOption = string | ColorScale
 
-/** Tono neutral usado en modo dark — debe ser una paleta gris de Tailwind. */
-export type DarkTone = 'neutral' | 'slate' | 'gray' | 'zinc' | 'stone'
+/** Temas Preline disponibles — cada uno define un "feel" completo (light + dark). */
+export type PrelineTheme =
+  | 'default'    // blue
+  | 'harvest'    // amber
+  | 'retro'      // fuchsia
+  | 'ocean'      // cyan
+  | 'autumn'     // yellow
+  | 'moon'       // gray
+  | 'bubblegum'  // pink
+  | 'cashmere'   // mauve
+  | 'olive'      // avocado
 
 /** Proveedor OAuth — slug del provider (matchea con backend SocialAuthController). */
 export type OAuthProvider = 'google' | 'microsoft' | 'apple' | 'github'
