@@ -26,6 +26,10 @@ const { docked } = useDockedPreviews()
 const route = useRoute()
 const appConfig = useAppConfig()
 
+// Organizaciones — picker se muestra si el feature está activo y el user
+// tiene 2+ orgs sin elegir todavía. Bloquea el contenido detrás.
+const { needsPicker: needsOrgPicker } = useOrganization()
+
 const branding = computed(() => appConfig.innertia?.branding ?? { name: 'Innertia' })
 const menuItems = computed<MenuItem[]>(() => (appConfig.innertia?.menu ?? []) as MenuItem[])
 const menuApps  = computed<MenuItem[]>(() => (appConfig.innertia?.menuApps ?? []) as MenuItem[])
@@ -107,6 +111,7 @@ const homeRoute = computed(() => menuItems.value[0]?.route ?? '/')
               <icons.IconMoon v-else class="size-4 shrink-0" />
             </button>
 
+            <OrganizationSwitcher />
             <slot name="topbar-actions" />
 
             <div class="hidden sm:block w-px h-6 bg-navbar-divider/20 mx-1" />
@@ -205,5 +210,8 @@ const homeRoute = computed(() => menuItems.value[0]?.route ?? '/')
 
     <!-- Preview dock (previews minimizados de tablas) -->
     <AppPreviewDock />
+
+    <!-- Organization picker — overlay full-screen cuando aplica -->
+    <OrganizationPicker v-if="needsOrgPicker" />
   </div>
 </template>

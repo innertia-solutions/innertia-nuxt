@@ -102,6 +102,25 @@ export default defineAppConfig({
     menuApps: [] as MenuItem[],
 
     /**
+     * Soporte de organizaciones (sub-tenant scoping).
+     * Debe matchear con `innertia.organizations.enabled` del backend.
+     *
+     * Cuando está activo:
+     *   - El interceptor agrega `X-Organization: <slug>` a cada request
+     *   - Al entrar a un contexto, si el usuario tiene 2+ orgs y no hay elegida → picker
+     *   - Si tiene 1 org → auto-select
+     *   - La elección se persiste por contexto en cookie (30 días)
+     */
+    organizations: {
+      /** Activar feature. Default false. */
+      enabled: false,
+      /** Si true, los productos pueden exponer toggle "vista consolidada" (X-Consolidated header). */
+      allowConsolidated: false,
+      /** Si true, bloquea el contexto cuando el user tiene 0 orgs accesibles. Default false (deja pasar). */
+      required: false,
+    },
+
+    /**
      * Declaración de "apps" (contextos) del producto.
      * Cada app define un prefijo de URL que mapea a un contexto del backend
      * (matching con `availableContexts` que devuelve `auth/me`).

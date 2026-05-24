@@ -1,7 +1,8 @@
-// useAuthStore, useApi auto-imported
+// useAuthStore, useApi, useOrganizationStore auto-imported
 
 export function useAuth() {
   const authStore = useAuthStore()
+  const organizationStore = useOrganizationStore()
   const api = useApi()
   const config = useRuntimeConfig()
   const loginPath = config.public.loginPath || '/login'
@@ -31,6 +32,17 @@ export function useAuth() {
     authStore.saveUser(data.user ?? data)
     authStore.savePermissions(data.permissions ?? [])
     authStore.availableContexts = data.availableContexts ?? []
+
+    // Hidratar organizaciones accesibles por contexto (si el backend las devuelve).
+    // Shape esperado: { backoffice: [{ id, key, name }], technician: [...] }
+    if (data.organizations) {
+      organizationStore.setAvailable(data.organizations)
+      // Auto-select para contextos donde el user tiene 1 sola org
+      for (const ctx of Object.keys(data.organizations)) {
+        organizationStore.autoSelectFor(ctx)
+      }
+    }
+
     applyAppearance(data.preferences?.appearance)
     return data
   }
@@ -54,6 +66,7 @@ export function useAuth() {
     }
     queryClient.clear()
     authStore.logout()
+    organizationStore.reset()
     await navigateTo(loginPath)
   }
 
