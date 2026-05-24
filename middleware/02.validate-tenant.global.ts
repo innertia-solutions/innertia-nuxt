@@ -1,5 +1,5 @@
 // useTenantStore auto-imported.
-// Server-only: valida el tenant via GET /ping con X-Tenant header.
+// Server-only: valida el tenant via GET /status con X-Tenant header.
 // Usa la URL interna del backend (apiInternalUrl) para evitar pasar por el proxy de Nitro.
 // Solo activo en mode === 'saas'.
 export default defineNuxtRouteMiddleware(async (to) => {
@@ -31,13 +31,22 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // URL interna del backend (no pasa por el proxy Nitro — no existe en SSR)
   const config = useRuntimeConfig()
   const internalUrl = (config as any).apiInternalUrl || 'http://api:80'
-  const pingUrl = `${internalUrl}/ping`
+  const statusUrl = `${internalUrl}/status`
 
-  console.log(`[tenant:validate] ping → ${pingUrl} (X-Tenant: ${tenantSlug})`)
+  console.log(`[tenant:validate] status → ${statusUrl} (X-Tenant: ${tenantSlug})`)
 
   try {
-    const data = await $fetch<{ ok: boolean; tenant: { id: number; status: string; config: any } }>(
-      pingUrl,
+    // Shape esperado:
+    // { ok, tenant: { id, key, name, status, isActive },
+    //   features: { organizations, teams, twoFactor, oauth: [] },
+    //   branding: { demo } }
+    const data = await $fetch<{
+      ok: boolean
+      tenant: { id: number; key: string; name: string; status: string; isActive: boolean }
+      features?: Record<string, any>
+      branding?: Record<string, any>
+    }>(
+      statusUrl,
       {
         headers: { 'X-Tenant': tenantSlug, 'Accept': 'application/json' },
         timeout: 5000,
@@ -51,8 +60,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
       return navigateTo('/tenant-error?reason=inactive')
     }
 
+    // tenantStore.setTenant expects (id, config). Combinamos features + branding como config
+    // para compatibilidad con consumidores existentes que leen tenantStore.config.
     const tenantStore = useTenantStore()
-    tenantStore.setTenant(data.tenant.id, data.tenant.config ?? {})
+    tenantStore.setTenant(data.tenant.id, {
+      ...(data.tenant ?? {}),
+      features: data.features ?? {},
+      branding: data.branding ?? {},
+      // Compatibilidad con código viejo que lee config.demo y config.oauthProviders directo
+      demo: data.branding?.demo ?? null,
+      oauthProviders: data.features?.oauth ?? [],
+    })
     console.log(`[tenant:validate] OK — tenant id=${data.tenant.id} status=${data.tenant.status}`)
   } catch (e: any) {
     const status = e?.response?.status
