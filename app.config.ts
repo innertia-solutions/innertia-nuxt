@@ -43,6 +43,18 @@ export default defineAppConfig({
     },
 
     /**
+     * Tono neutral usado en modo dark (backgrounds, borders, surfaces).
+     * Cambia el "feel" del modo oscuro sin tocar el color de marca.
+     *
+     *   - 'neutral' (default) → gris puro, neutral
+     *   - 'slate'             → gris con leve tinte azul (más frío)
+     *   - 'gray'              → gris levemente más cálido que slate
+     *   - 'zinc'              → gris cálido
+     *   - 'stone'             → gris muy cálido (con tinte tierra)
+     */
+    darkTone: 'neutral' as DarkTone,
+
+    /**
      * Contenido del panel marketing del layout `auth`. Si no se declara, el panel queda vacío.
      */
     marketing: {
@@ -107,6 +119,9 @@ export type AppMobileMode = 'allow' | 'block' | 'redirect'
 /** Color: nombre de paleta Tailwind o scale custom 50→950. */
 export type ColorScale = Partial<Record<50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 950, string>>
 export type ColorOption = string | ColorScale
+
+/** Tono neutral usado en modo dark — debe ser una paleta gris de Tailwind. */
+export type DarkTone = 'neutral' | 'slate' | 'gray' | 'zinc' | 'stone'
 
 /** Proveedor OAuth — slug del provider (matchea con backend SocialAuthController). */
 export type OAuthProvider = 'google' | 'microsoft' | 'apple' | 'github'

@@ -24,6 +24,10 @@ export default defineNuxtConfig({
     innertia: {
       mode: 'saas', // 'saas' (default) | 'app'
 
+      branding: { name: 'MyApp', version: '1.0.0' },
+      colors: { primary: 'violet', secondary: 'slate' },
+      darkTone: 'slate',  // 'neutral' (default) | 'slate' | 'gray' | 'zinc' | 'stone'
+
       apps: {
         backoffice: {
           path: '/backoffice',
