@@ -55,7 +55,7 @@ const displayText = computed(() => {
 
 const selectClasses = computed(() => {
   const base =
-    "relative w-full rounded-lg border bg-card transition-colors cursor-pointer text-foreground py-2 px-3 text-sm focus:outline-none focus:ring-0 focus:border-gray-400";
+    "innertia-field relative cursor-pointer text-foreground";
   const validation = "border-card-line";
   const disabled = props.disabled ? "opacity-50 cursor-not-allowed" : "";
   return `${base} ${validation} ${disabled}`;
@@ -121,7 +121,7 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
 
         <span
           v-if="clearable && hasSelection && !disabled"
-          class="absolute end-8 top-1/2 -translate-y-1/2 hover:bg-muted-hover rounded-full p-1 transition-colors focus:outline-none focus:ring-1 focus:ring-slate-400"
+          class="absolute end-8 top-1/2 -translate-y-1/2 hover:bg-muted-hover rounded-avatar p-1 transition-colors focus:outline-none focus:ring-1 focus:ring-slate-400"
           role="button"
           tabindex="0"
           @click.stop="clearSelection"
@@ -169,7 +169,7 @@ onUnmounted(() => document.removeEventListener("mousedown", handleClickOutside))
       <div
         v-show="isOpen"
         :class="[
-          'absolute z-50 w-full mt-1 bg-dropdown border border-dropdown-line rounded-xl shadow-xl max-h-60 overflow-auto',
+          'absolute z-50 w-full -mt-px bg-[color:var(--field-dropdown-bg)] border border-[color:var(--field-border)] rounded-b-control shadow-lg max-h-60 overflow-auto',
           menuClass,
         ]"
       >

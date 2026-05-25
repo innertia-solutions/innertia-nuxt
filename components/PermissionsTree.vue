@@ -133,17 +133,17 @@ function groupSelectedCount(group) {
 
     <!-- Search -->
     <div class="relative">
-      <IconSearch class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-slate-400 pointer-events-none" />
+      <IconSearch class="absolute right-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
       <input
         v-model="search"
-        type="search"
+        type="text"
         placeholder="Buscar permiso…"
-        class="w-full pl-7 pr-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-slate-700 dark:text-slate-300 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40 focus:border-blue-400"
+        class="innertia-field innertia-field-sm pe-7"
       />
     </div>
 
     <!-- Tree -->
-    <div class="rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden text-sm">
+    <div class="rounded-card border border-card-line bg-card overflow-hidden text-sm">
 
       <div v-if="visibleApps.length === 0" class="px-3 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
         {{ search ? 'Sin resultados.' : readonly ? 'Sin permisos asignados.' : 'Sin permisos disponibles.' }}

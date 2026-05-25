@@ -73,7 +73,7 @@ defineExpose({ open: () => { isOpen.value = true } })
       @click="isOpen = !isOpen"
       title="Exportar"
       :class="[
-        'p-1.5 inline-flex items-center justify-center rounded-lg border transition-colors',
+        'p-1.5 inline-flex items-center justify-center rounded-control border transition-colors',
         isOpen
           ? 'border-primary/40 bg-primary/10 text-primary'
           : 'border-transparent text-muted-foreground hover:border-card-line hover:bg-muted-hover hover:text-foreground'
@@ -93,7 +93,7 @@ defineExpose({ open: () => { isOpen.value = true } })
       <div
         v-if="isOpen"
         ref="panelRef"
-        class="absolute top-full right-0 z-50 mt-1.5 bg-dropdown border border-dropdown-line rounded-xl shadow-2xl p-3 w-64"
+        class="absolute top-full right-0 z-50 mt-1.5 bg-dropdown border border-dropdown-line rounded-popover shadow-2xl p-3 w-64"
       >
         <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 px-1">Exportar</p>
 
@@ -105,7 +105,7 @@ defineExpose({ open: () => { isOpen.value = true } })
             type="button"
             @click="format = f.value"
             :class="[
-              'flex flex-col items-center gap-1 py-2 rounded-lg border text-xs font-medium transition-colors',
+              'flex flex-col items-center gap-1 py-2 rounded-control border text-xs font-medium transition-colors',
               format === f.value
                 ? 'border-primary/40 bg-primary/10 text-primary'
                 : 'border-card-line text-muted-foreground-1 hover:bg-muted-hover'
@@ -126,7 +126,7 @@ defineExpose({ open: () => { isOpen.value = true } })
             <input
               v-model="filename"
               type="text"
-              class="flex-1 rounded-lg border border-card-line bg-card text-foreground py-1.5 px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 min-w-0"
+              class="flex-1 innertia-field innertia-field-sm min-w-0"
             />
             <span class="text-xs text-muted-foreground shrink-0">.{{ format }}</span>
           </div>
@@ -144,7 +144,7 @@ defineExpose({ open: () => { isOpen.value = true } })
             <label
               v-for="col in columns"
               :key="col.key"
-              class="flex items-center gap-2 py-1 px-1.5 rounded-lg hover:bg-muted-hover cursor-pointer"
+              class="flex items-center gap-2 py-1 px-1.5 rounded-control hover:bg-muted-hover cursor-pointer"
             >
               <input
                 type="checkbox"
@@ -161,7 +161,7 @@ defineExpose({ open: () => { isOpen.value = true } })
         <button
           type="button"
           @click="doExport"
-          class="w-full py-1.5 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors inline-flex items-center justify-center gap-2"
+          class="w-full py-1.5 px-3 rounded-control bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors inline-flex items-center justify-center gap-2"
         >
           <IconDownload class="size-4" stroke="1.5" />
           Exportar

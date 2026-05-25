@@ -1,5 +1,5 @@
 <script setup>
-import { IconSearch, IconLayoutColumns, IconGripVertical, IconMinus, IconMaximize, IconX, IconPlus, IconChevronLeft, IconCheck, IconChevronDown, IconExternalLink, IconTrash } from '@tabler/icons-vue'
+import { IconSearch, IconLayoutColumns, IconGripVertical, IconX, IconPlus, IconChevronLeft, IconCheck, IconChevronDown } from '@tabler/icons-vue'
 import Table from './index.vue'
 
 const props = defineProps({
@@ -250,62 +250,35 @@ const resolvedPreviewHref = computed(() => {
     : props.previewHref
 })
 
-// ─── Preview panel ─────────────────────────────────────────────────────────────
-const previewRow      = ref(null)
-const currentRatio    = ref(props.splitRatio)
-const containerRef    = ref(null)
-const previewEnabled  = ref(false)
-const paginationHeight = ref(0)
+// ─── Preview — la UI vive en <DataPreview>, este file solo le pasa la fila ─
+const previewRow     = ref(null)
+const containerRef   = ref(null)
+const dataPreviewRef = ref(null)
+const previewEnabled = ref(false)
+const tableMeta      = ref(null)
 
-const previewCacheKey = computed(() => `table-preview-${resolvedName.value}`)
-
-const previewFromCache = ref(false)
-const previewPanelRef = ref(null)
 const closePreview = () => { previewRow.value = null }
 
-const previewTab  = ref('datos')
-const tableMeta   = ref(null)
-
-const hasHistory = computed(() => !!tableMeta.value?.has_history)
 const resolvedHistoryEndpoint = computed(() => {
-  if (!hasHistory.value || !previewRow.value?.id || !tableMeta.value?.entity_type) return null
+  if (!tableMeta.value?.has_history || !previewRow.value?.id || !tableMeta.value?.entity_type) return null
   return `history/${tableMeta.value.entity_type}/${previewRow.value.id}`
 })
 
-watch(previewRow, async (row) => {
-  previewTab.value = 'datos'
-  if (row) {
-    await nextTick()
-    if (typeof window !== 'undefined') window.HSStaticMethods?.autoInit?.(['Tooltip'])
-  }
-})
+const { collapseDock } = useDockedPreviews()
 
 const handleRowClick = (row) => {
   if (!previewEnabled.value) {
     emit('row-click', row)
     return
   }
-
-  // Si la misma fila ya tiene el preview abierto, no hacer nada.
-  // Comparación stringificada para tolerar mismatch de tipo (string vs number).
-  const currentId = previewRow.value?.id
+  const currentId  = previewRow.value?.id
   const incomingId = row?.id
-  if (currentId != null && incomingId != null && String(currentId) === String(incomingId)) {
-    return
-  }
-
+  if (currentId != null && incomingId != null && String(currentId) === String(incomingId)) return
   collapseDock()
   previewRow.value = row
 }
 
-// Persist preview row in session cache when table cache is enabled
-watch(previewRow, (row) => {
-  if (!props.cached) return
-  if (row) sessionStorage.setItem(previewCacheKey.value, JSON.stringify(row))
-  else sessionStorage.removeItem(previewCacheKey.value)
-})
-
-// When data reloads, update previewRow with fresh data — close silently if deleted
+// Cuando recarga la data, mantener viva la fila previewada (o cerrar si fue eliminada).
 const handleLoaded = (res) => {
   emit('loaded', res)
   if (res?.meta) tableMeta.value = res.meta
@@ -316,93 +289,22 @@ const handleLoaded = (res) => {
   }
 }
 
-// Track pagination bar height so the overlay never covers it
-let paginationObserver = null
-watch(() => tableRef.value?.paginationBarRef, (el) => {
-  paginationObserver?.disconnect()
-  paginationObserver = null
-  if (!el) return
-  paginationHeight.value = el.offsetHeight
-  paginationObserver = new ResizeObserver(() => {
-    paginationHeight.value = el.offsetHeight
-  })
-  paginationObserver.observe(el)
-}, { flush: 'post' })
-
-const startResize = (e) => {
-  e.preventDefault()
-  const onMove = (ev) => {
-    if (!containerRef.value) return
-    const rect = containerRef.value.getBoundingClientRect()
-    const ratio = ((ev.clientX - rect.left) / rect.width) * 100
-    currentRatio.value = Math.min(80, Math.max(25, ratio))
-  }
-  const onUp = () => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-  }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
+// ESC + click-fuera → cierran el preview (la UI no maneja esto porque depende
+// del container del padre).
+const onEsc = (e) => {
+  if (e.key !== 'Escape') return
+  if (previewRow.value) closePreview()
+  else collapseDock()
 }
-
-const onEsc = (e) => { if (e.key === 'Escape') { if (previewRow.value) closePreview(); else collapseDock() } }
-
-// ─── Auto-close preview on outside click ──────────────────────────────────────
 const onDocMousedown = (e) => {
-  if (props.autoClosePreview && previewRow.value && previewPanelRef.value && !previewPanelRef.value.contains(e.target)) {
-    closePreview()
-  }
-}
-
-// ─── Dock (minimizar preview) ──────────────────────────────────────────────────
-const {
-  docked,
-  dock, undock: undockItem, isActive,
-  activeDockId, activeDockRect,
-  expandDock, collapseDock,
-} = useDockedPreviews()
-const route = useRoute()
-
-function minimizePreview() {
-  if (!previewRow.value) return
-  const label    = previewRow.value.name ?? previewRow.value.title ?? previewRow.value.email ?? String(previewRow.value.id)
-  const subtitle = previewRow.value.email ?? previewRow.value.description ?? null
-  dock({
-    id:        `${resolvedName.value}-${previewRow.value.id}`,
-    label,
-    subtitle,
-    row:       { ...previewRow.value },
-    tableName: resolvedName.value,
-    route:     route.path,
-  })
+  if (!props.autoClosePreview || !previewRow.value) return
+  const panelEl = dataPreviewRef.value?.panelRef
+  if (containerRef.value?.contains(e.target)) return
+  if (panelEl?.contains(e.target)) return
   closePreview()
 }
 
-// Item que debe mostrarse como mini-preview flotante (pertenece a esta tabla)
-const floatingItem = computed(() =>
-  activeDockId.value
-    ? docked.value.find(d => d.id === activeDockId.value && d.tableName === resolvedName.value) ?? null
-    : null
-)
-
-// Posición del panel flotante: centrado sobre el tab que lo abrió
-const floatingPanelStyle = computed(() => {
-  const rect   = activeDockRect.value
-  const panelW = 384
-  const bottom = 52
-  if (!rect || typeof window === 'undefined') return { bottom: bottom + 'px', right: '16px' }
-  const tabCenter = rect.left + rect.width / 2
-  let right = window.innerWidth - tabCenter - panelW / 2
-  right = Math.max(8, Math.min(right, window.innerWidth - panelW - 8))
-  return { bottom: bottom + 'px', right: right + 'px' }
-})
-
-function expandToFull(item) {
-  previewRow.value = item.row
-  undockItem(item.id)
-}
-
-// Escuchar evento de restauración (fallback cuando la tabla no estaba montada)
+// Restauración cuando se vuelve a la página tabla → la fila docked se promueve.
 onMounted(() => {
   useNuxtApp().hooks.hook('preview:restore', (item) => {
     if (item.tableName === resolvedName.value) previewRow.value = item.row
@@ -413,31 +315,16 @@ onMounted(async () => {
   previewEnabled.value = !!slots.preview
   window.addEventListener('keydown', onEsc)
   document.addEventListener('mousedown', onDocMousedown)
-  // Restore preview from session cache — mark as from-cache to skip enter animation
-  if (props.cached && previewEnabled.value) {
-    try {
-      const raw = sessionStorage.getItem(previewCacheKey.value)
-      if (raw) {
-        previewFromCache.value = true
-        previewRow.value = JSON.parse(raw)
-        await nextTick()
-        previewFromCache.value = false
-      }
-    } catch {}
-  }
 
   // Load column preferences from backend
   if (props.persistPreferences && resolvedName.value) {
     await loadPrefs()
-    // Apply saved visibility
     if (tablePrefs.value.visibility && tableRef.value?.table) {
       tableRef.value.table.setColumnVisibility(tablePrefs.value.visibility)
     }
-    // Apply saved column order
     if (tablePrefs.value.order?.length && tableRef.value?.setColumnOrder) {
       tableRef.value.setColumnOrder(tablePrefs.value.order)
     }
-    // Apply saved pinning
     if (tablePrefs.value.pinning && tableRef.value?.table) {
       tableRef.value.table.setColumnPinning(tablePrefs.value.pinning)
     }
@@ -447,7 +334,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onEsc)
   document.removeEventListener('mousedown', onDocMousedown)
-  paginationObserver?.disconnect()
 })
 
 // ─── Column panel ─────────────────────────────────────────────────────────────
@@ -651,7 +537,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
 
       <!-- Search -->
       <div v-if="showSearch" class="flex-1 min-w-48 max-w-xs">
-        <Forms.Input v-model="search" type="search" :placeholder="searchPlaceholder" :icon-left="IconSearch" size="sm" />
+        <Forms.Input v-model="search" type="text" :placeholder="searchPlaceholder" :icon-right="IconSearch" size="sm" />
       </div>
 
       <!-- + Filtros button -->
@@ -660,7 +546,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
           type="button"
           @click="toggleFilterMenu"
           :class="[
-            'inline-flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium rounded-lg border transition-colors',
+            'inline-flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium rounded-control border transition-colors',
             activeFilterList.length
               ? 'border-primary/40 bg-primary/10 text-primary'
               : 'border-card-line bg-card text-muted-foreground-1 hover:bg-muted-hover'
@@ -682,7 +568,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
           @click="showColumnPanel = !showColumnPanel"
           :title="'Columnas'"
           :class="[
-            'p-1.5 inline-flex items-center justify-center rounded-lg border transition-colors',
+            'p-1.5 inline-flex items-center justify-center rounded-control border transition-colors',
             showColumnPanel
               ? 'border-primary/40 bg-primary/10 text-primary'
               : 'border-transparent text-muted-foreground hover:border-card-line hover:bg-muted-hover hover:text-foreground'
@@ -700,7 +586,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
       <div
         v-for="chip in activeFilterList"
         :key="chip.key"
-        class="inline-flex items-center text-xs rounded-lg border border-card-line bg-card overflow-hidden"
+        class="inline-flex items-center text-xs rounded-control border border-card-line bg-card overflow-hidden"
       >
         <span class="px-2.5 py-1 text-foreground font-medium border-r border-card-line bg-surface">{{ chip.label }}</span>
         <span class="px-2 py-1 text-muted-foreground">{{ chip.displayOp }}</span>
@@ -723,7 +609,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
     </div>
 
     <!-- Tabla -->
-    <div class="overflow-hidden border border-card-line rounded-xl">
+    <div class="overflow-hidden border border-card-line rounded-card">
       <Table
         ref="tableRef"
         :endpoint="resolvedEndpoint"
@@ -749,172 +635,31 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
       </Table>
     </div>
 
-    <!-- Preview panel — overlay deslizante desde la derecha (cubre todo el componente) -->
-    <Transition
-      :enter-active-class="previewFromCache ? '' : 'transition ease-out duration-200'"
-      :enter-from-class="previewFromCache ? '' : 'opacity-0 translate-x-6'"
-      :enter-to-class="previewFromCache ? '' : 'opacity-100 translate-x-0'"
-      leave-active-class="transition ease-in duration-150"
-      leave-from-class="opacity-100 translate-x-0"
-      leave-to-class="opacity-0 translate-x-6"
+    <!-- Preview compartido (panel overlay + chip flotante + history tab) -->
+    <DataPreview
+      ref="dataPreviewRef"
+      v-model:row="previewRow"
+      :enabled="previewEnabled"
+      :name="resolvedName"
+      :cached="cached"
+      :preview-href="previewHref"
+      :preview-deletable="previewDeletable"
+      :split-ratio="splitRatio"
+      :container-ref="containerRef"
+      :history-endpoint="resolvedHistoryEndpoint"
+      @delete="emit('preview-delete', $event)"
     >
-      <div
-        v-if="previewRow && previewEnabled"
-        ref="previewPanelRef"
-        class="absolute top-0 right-0 bottom-0 z-30 flex flex-col bg-card border border-card-line rounded-2xl shadow-xl overflow-hidden"
-        :style="{ width: (100 - currentRatio) + '%' }"
-      >
-        <!-- Resize handle — thin pill on left edge -->
-        <div
-          class="absolute left-1 top-1/2 -translate-y-1/2 h-12 w-1 cursor-col-resize rounded-full bg-border hover:bg-primary/50 transition-colors z-10"
-          @mousedown="startResize"
-        />
+      <template #header="bind">
+        <slot name="preview-header" v-bind="bind" />
+      </template>
+      <template #actions="bind">
+        <slot name="preview-actions" v-bind="bind" />
+      </template>
+      <template #default="bind">
+        <slot name="preview" v-bind="bind" />
+      </template>
+    </DataPreview>
 
-        <!-- Barra de acciones del preview -->
-        <div class="shrink-0 flex items-center gap-3 px-5 py-4 border-b border-card-line">
-          <!-- Título (reemplazable via slot) -->
-          <div class="flex-1 min-w-0">
-            <slot name="preview-header" :row="previewRow" :close="closePreview" />
-          </div>
-
-          <!-- Botones de acción — todos icon-only, mismo tamaño y estilo -->
-          <div class="flex items-center gap-0.5 shrink-0">
-
-            <!-- Acciones extra configurables desde el padre -->
-            <slot name="preview-actions" :row="previewRow" :close="closePreview" />
-
-            <!-- Abrir (configurable vía :preview-href) -->
-            <div v-if="resolvedPreviewHref" class="hs-tooltip [--placement:top] inline-block">
-              <NuxtLink
-                :to="resolvedPreviewHref"
-                class="hs-tooltip-toggle inline-flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors"
-              >
-                <IconExternalLink class="size-3.5" />
-              </NuxtLink>
-              <span class="hs-tooltip-content hs-tooltip-shown:opacity-100 hs-tooltip-shown:visible opacity-0 transition-opacity inline-block absolute invisible z-10 py-1 px-2 bg-tooltip border border-tooltip-line text-xs font-medium text-tooltip-foreground rounded-md shadow-2xs" role="tooltip">Abrir</span>
-            </div>
-
-            <!-- Eliminar (configurable vía :preview-deletable) -->
-            <div v-if="previewDeletable" class="hs-tooltip [--placement:top] inline-block">
-              <button
-                type="button"
-                class="hs-tooltip-toggle inline-flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                @click.stop="emit('preview-delete', previewRow)"
-              >
-                <IconTrash class="size-3.5" />
-              </button>
-              <span class="hs-tooltip-content hs-tooltip-shown:opacity-100 hs-tooltip-shown:visible opacity-0 transition-opacity inline-block absolute invisible z-10 py-1 px-2 bg-tooltip border border-tooltip-line text-xs font-medium text-tooltip-foreground rounded-md shadow-2xs" role="tooltip">Eliminar</span>
-            </div>
-
-            <!-- Minimizar (siempre) -->
-            <div class="hs-tooltip [--placement:top] inline-block">
-              <button
-                type="button"
-                class="hs-tooltip-toggle inline-flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors"
-                @click.stop="minimizePreview"
-              >
-                <IconMinus class="size-3.5" />
-              </button>
-              <span class="hs-tooltip-content hs-tooltip-shown:opacity-100 hs-tooltip-shown:visible opacity-0 transition-opacity inline-block absolute invisible z-10 py-1 px-2 bg-tooltip border border-tooltip-line text-xs font-medium text-tooltip-foreground rounded-md shadow-2xs" role="tooltip">Minimizar</span>
-            </div>
-
-            <!-- Cerrar (siempre) -->
-            <div class="hs-tooltip [--placement:top] inline-block">
-              <button
-                type="button"
-                class="hs-tooltip-toggle inline-flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors"
-                @click.stop="closePreview"
-              >
-                <IconX class="size-3.5" />
-              </button>
-              <span class="hs-tooltip-content hs-tooltip-shown:opacity-100 hs-tooltip-shown:visible opacity-0 transition-opacity inline-block absolute invisible z-10 py-1 px-2 bg-tooltip border border-tooltip-line text-xs font-medium text-tooltip-foreground rounded-md shadow-2xs" role="tooltip">Cerrar</span>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- Scrollable content -->
-        <div class="flex-1 overflow-y-auto min-h-0">
-          <slot v-if="previewTab === 'datos'" name="preview" :row="previewRow" :close="closePreview" />
-          <Table.PreviewTimeline
-            v-else-if="previewTab === 'bitacora' && resolvedHistoryEndpoint"
-            :endpoint="resolvedHistoryEndpoint"
-          />
-        </div>
-
-        <!-- Tabs — bottom -->
-        <div v-if="hasHistory" class="shrink-0 flex border-t border-card-line">
-          <button
-            type="button"
-            @click="previewTab = 'datos'"
-            :class="[
-              'flex-1 py-2.5 text-xs font-semibold transition-colors border-r border-card-line border-t-2 -mt-px',
-              previewTab === 'datos'
-                ? 'border-t-card text-foreground'
-                : 'border-t-transparent text-muted-foreground hover:text-foreground hover:bg-muted-hover'
-            ]"
-          >
-            Datos
-          </button>
-          <button
-            type="button"
-            @click="resolvedHistoryEndpoint && (previewTab = 'bitacora')"
-            :disabled="!resolvedHistoryEndpoint"
-            :class="[
-              'flex-1 py-2.5 text-xs font-semibold transition-colors border-t-2 -mt-px',
-              !resolvedHistoryEndpoint
-                ? 'border-t-transparent text-muted-foreground/40 cursor-not-allowed'
-                : previewTab === 'bitacora'
-                  ? 'border-t-card text-foreground'
-                  : 'border-t-transparent text-muted-foreground hover:text-foreground hover:bg-muted-hover'
-            ]"
-          >
-            Bitácora
-          </button>
-        </div>
-
-      </div>
-    </Transition>
-
-    <!-- ── Floating mini-preview (dock expand, estilo Gmail) ── -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition ease-out duration-200"
-        enter-from-class="opacity-0 translate-y-4"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition ease-in duration-150"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 translate-y-4"
-      >
-        <div
-          v-if="floatingItem"
-          class="fixed z-[60] w-96 flex flex-col bg-card border border-card-line rounded-t-xl shadow-2xl overflow-hidden"
-          :style="{ ...floatingPanelStyle, maxHeight: 'min(480px, calc(100vh - 60px))' }"
-        >
-          <div class="flex items-center gap-2 px-3 py-2.5 border-b border-card-line shrink-0 bg-surface select-none">
-            <span class="size-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground shrink-0">
-              {{ (floatingItem.label?.[0] ?? '?').toUpperCase() }}
-            </span>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-foreground truncate leading-tight">{{ floatingItem.label }}</p>
-              <p v-if="floatingItem.subtitle" class="text-xs text-muted-foreground truncate">{{ floatingItem.subtitle }}</p>
-            </div>
-            <button type="button" title="Expandir" class="inline-flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors" @click.stop="expandToFull(floatingItem)">
-              <IconMaximize class="size-3.5" />
-            </button>
-            <button type="button" title="Minimizar" class="inline-flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors" @click.stop="collapseDock()">
-              <IconMinus class="size-3.5" />
-            </button>
-            <button type="button" title="Cerrar" class="inline-flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" @click.stop="undockItem(floatingItem.id)">
-              <IconX class="size-3.5" />
-            </button>
-          </div>
-          <div class="flex-1 overflow-y-auto min-h-0">
-            <slot name="preview" :row="floatingItem.row" :close="() => undockItem(floatingItem.id)" />
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
 
     <!-- Filter menu — teleported to body -->
     <Teleport to="body">
@@ -929,7 +674,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
         <div
           v-if="showFilterPanel"
           ref="filterMenuRef"
-          class="fixed z-[60] bg-dropdown border border-dropdown-line rounded-xl shadow-2xl overflow-hidden"
+          class="fixed z-[60] bg-dropdown border border-dropdown-line rounded-popover shadow-2xl overflow-hidden"
           :style="filterMenuStyle"
         >
 
@@ -967,7 +712,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
               <button
                 type="button"
                 @click.stop="filterMenuStep = 'columns'"
-                class="inline-flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors shrink-0"
+                class="inline-flex items-center justify-center size-6 rounded-control text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors shrink-0"
               >
                 <IconChevronLeft class="size-4" />
               </button>
@@ -977,13 +722,13 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
               <select
                 v-if="pendingCol.filterType === 'text'"
                 v-model="pendingOperator"
-                class="ml-auto text-xs bg-dropdown border border-dropdown-line rounded-md px-2 py-1 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer"
+                class="ml-auto text-xs bg-dropdown border border-dropdown-line rounded-control px-2 py-1 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer"
               >
                 <option v-for="op in textOps" :key="op.value" :value="op.value">{{ op.label }}</option>
               </select>
 
               <!-- Operator: segmented toggle for select (es / no es) -->
-              <div v-else-if="pendingCol.filterType === 'select'" class="ml-auto flex rounded-md border border-dropdown-line overflow-hidden text-xs">
+              <div v-else-if="pendingCol.filterType === 'select'" class="ml-auto flex rounded-control border border-dropdown-line overflow-hidden text-xs">
                 <button
                   v-for="op in selectOps"
                   :key="op.value"
@@ -1004,7 +749,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
               <select
                 v-else-if="pendingCol.filterType === 'daterange'"
                 v-model="pendingDateOp"
-                class="ml-auto text-xs bg-dropdown border border-dropdown-line rounded-md px-2 py-1 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer"
+                class="ml-auto text-xs bg-dropdown border border-dropdown-line rounded-control px-2 py-1 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer"
               >
                 <option v-for="op in dateOps" :key="op.value" :value="op.value">{{ op.label }}</option>
               </select>
@@ -1021,7 +766,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
                 @keydown.enter.stop="applyPendingFilter"
                 @keydown.escape.stop="closeFilterMenu"
                 placeholder="Valor..."
-                class="w-full rounded-lg border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary"
+                class="w-full rounded-control border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary"
               />
 
               <!-- ── SELECT ── -->
@@ -1032,7 +777,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
                   type="button"
                   @click.stop="pendingValue = opt.value; applyPendingFilter()"
                   :class="[
-                    'w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-lg transition-colors text-left',
+                    'w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-control transition-colors text-left',
                     pendingValue === opt.value
                       ? 'bg-primary/10 text-primary'
                       : 'hover:bg-muted-hover text-foreground'
@@ -1046,10 +791,10 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
               <!-- ── DATERANGE ── -->
               <template v-else-if="pendingCol.filterType === 'daterange'">
                 <template v-if="pendingDateOp === 'between'">
-                  <input type="date" v-model="pendingValue.from" class="w-full rounded-lg border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
-                  <input type="date" v-model="pendingValue.to"   class="w-full rounded-lg border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
+                  <input type="date" v-model="pendingValue.from" class="w-full rounded-control border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
+                  <input type="date" v-model="pendingValue.to"   class="w-full rounded-control border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
                 </template>
-                <input v-else type="date" v-model="pendingValue.singleDate" class="w-full rounded-lg border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
+                <input v-else type="date" v-model="pendingValue.singleDate" class="w-full rounded-control border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
               </template>
 
               <!-- Apply (not for select — auto-applies on click) -->
@@ -1057,7 +802,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
                 v-if="pendingCol.filterType !== 'select'"
                 type="button"
                 @click.stop="applyPendingFilter"
-                class="w-full py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 active:bg-primary/80 transition-colors"
+                class="w-full py-1.5 text-sm font-medium rounded-control bg-primary text-white hover:bg-primary/90 active:bg-primary/80 transition-colors"
               >
                 Aplicar
               </button>
@@ -1082,7 +827,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
         <div
           v-if="showColumnPanel"
           ref="columnPanelRef"
-          class="fixed z-50 bg-dropdown border border-dropdown-line rounded-xl shadow-2xl min-w-64 max-h-[480px] overflow-y-auto"
+          class="fixed z-50 bg-dropdown border border-dropdown-line rounded-popover shadow-2xl min-w-64 max-h-[480px] overflow-y-auto"
           :style="columnPanelStyle"
         >
 
@@ -1093,7 +838,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
               Fija a la izquierda
             </p>
             <div
-              class="rounded-lg min-h-[34px] transition-colors"
+              class="rounded-control min-h-[34px] transition-colors"
               :class="dragOverSection === 'left' && draggedKey && !columnsBySection.left.find(c => c.key === draggedKey)
                 ? 'bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-300 dark:ring-indigo-700'
                 : columnsBySection.left.length === 0 ? 'border border-dashed border-card-line' : ''"
@@ -1112,7 +857,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
                 @dragover.prevent="dragOverSection = 'left'; dragOverKey = col.key"
                 @dragleave="dragOverKey = null"
                 @drop.stop="onDrop(col.key, 'left')"
-                class="flex items-center gap-2 py-1.5 px-2 rounded-lg select-none cursor-grab transition-colors"
+                class="flex items-center gap-2 py-1.5 px-2 rounded-control select-none cursor-grab transition-colors"
                 :class="dragOverKey === col.key ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-muted-hover'"
               >
                 <IconGripVertical class="size-4 text-muted-foreground-2 shrink-0" />
@@ -1138,7 +883,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
               Columnas
             </p>
             <div
-              class="rounded-lg min-h-[34px] transition-colors"
+              class="rounded-control min-h-[34px] transition-colors"
               :class="dragOverSection === 'center' && draggedKey && !columnsBySection.center.find(c => c.key === draggedKey)
                 ? 'bg-muted/60 ring-1 ring-border'
                 : ''"
@@ -1157,7 +902,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
                 @dragover.prevent="dragOverSection = 'center'; dragOverKey = col.key"
                 @dragleave="dragOverKey = null"
                 @drop.stop="onDrop(col.key, 'center')"
-                class="flex items-center gap-2 py-1.5 px-2 rounded-lg select-none cursor-grab transition-colors"
+                class="flex items-center gap-2 py-1.5 px-2 rounded-control select-none cursor-grab transition-colors"
                 :class="dragOverKey === col.key ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-200 dark:ring-blue-700' : 'hover:bg-muted-hover'"
               >
                 <IconGripVertical class="size-4 text-muted-foreground-2 shrink-0" />
@@ -1182,7 +927,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
               Fija a la derecha
             </p>
             <div
-              class="rounded-lg min-h-[34px] transition-colors"
+              class="rounded-control min-h-[34px] transition-colors"
               :class="dragOverSection === 'right' && draggedKey && !columnsBySection.right.find(c => c.key === draggedKey)
                 ? 'bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-300 dark:ring-amber-700'
                 : columnsBySection.right.length === 0 ? 'border border-dashed border-card-line' : ''"
@@ -1201,7 +946,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
                 @dragover.prevent="dragOverSection = 'right'; dragOverKey = col.key"
                 @dragleave="dragOverKey = null"
                 @drop.stop="onDrop(col.key, 'right')"
-                class="flex items-center gap-2 py-1.5 px-2 rounded-lg select-none cursor-grab transition-colors"
+                class="flex items-center gap-2 py-1.5 px-2 rounded-control select-none cursor-grab transition-colors"
                 :class="dragOverKey === col.key ? 'bg-amber-50 dark:bg-amber-900/20' : 'hover:bg-muted-hover'"
               >
                 <IconGripVertical class="size-4 text-muted-foreground-2 shrink-0" />

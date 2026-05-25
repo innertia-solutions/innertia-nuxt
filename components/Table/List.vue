@@ -69,14 +69,14 @@ defineExpose({ reload, rows })
 <template>
   <div class="flex flex-col gap-4">
     <div v-if="showSearch" class="relative">
-      <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-        <IconSearch class="size-4 text-slate-400" stroke="1.5" />
+      <div class="absolute inset-y-0 end-0 flex items-center pe-3 pointer-events-none">
+        <IconSearch class="size-4 text-muted-foreground" stroke="1.5" />
       </div>
       <input
         v-model="search"
-        type="search"
+        type="text"
         :placeholder="searchPlaceholder"
-        class="block w-full rounded-lg border border-card-line bg-card text-foreground py-2 ps-10 pe-4 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        class="innertia-field pe-10"
       />
     </div>
 
@@ -85,7 +85,7 @@ defineExpose({ reload, rows })
       <div
         v-for="i in 8"
         :key="i"
-        class="h-16 bg-surface rounded-xl animate-pulse"
+        class="h-16 bg-surface rounded-card animate-pulse"
       />
     </div>
 
@@ -94,7 +94,7 @@ defineExpose({ reload, rows })
       <div
         v-for="row in rows"
         :key="row.id ?? JSON.stringify(row)"
-        class="bg-card border border-card-line rounded-xl px-4 py-3 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors cursor-pointer"
+        class="bg-card border border-card-line rounded-card px-4 py-3 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors cursor-pointer"
         @click="emit('row-click', row)"
       >
         <slot name="item" :row="row">

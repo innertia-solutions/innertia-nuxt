@@ -82,19 +82,19 @@ defineExpose({ reload })
 <template>
   <div class="flex flex-col gap-3">
     <div v-if="showSearch" class="relative max-w-sm">
-      <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-        <IconSearch class="size-4 text-slate-400" stroke="1.5" />
+      <div class="absolute inset-y-0 end-0 flex items-center pe-3 pointer-events-none">
+        <IconSearch class="size-4 text-muted-foreground" stroke="1.5" />
       </div>
       <input
         v-model="search"
-        type="search"
+        type="text"
         :placeholder="searchPlaceholder"
-        class="block w-full rounded-lg border border-card-line bg-card text-foreground py-1.5 ps-9 pe-4 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        class="innertia-field innertia-field-sm pe-9"
       />
     </div>
 
     <!-- Dense table wrapper — override Table's default padding with compact styles -->
-    <div class="overflow-x-auto border border-card-line rounded-xl">
+    <div class="overflow-x-auto border border-card-line rounded-card">
       <Table
         ref="tableRef"
         :endpoint="endpoint"

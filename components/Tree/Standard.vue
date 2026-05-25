@@ -1,9 +1,11 @@
 <script setup>
 import {
-  IconLoader2, IconSearch, IconRefresh, IconPlus,
+  IconLoader2, IconSearch, IconRefresh, IconPlus, IconBolt, IconReload,
   IconLayoutColumns, IconChevronDown, IconX, IconDownload,
   IconFileTypeXls, IconFileTypeCsv, IconFileTypePdf, IconCodeDots,
 } from '@tabler/icons-vue'
+
+const slots = useSlots()
 
 const props = defineProps({
   // Required: backend route that returns DataTree-shaped responses.
@@ -31,6 +33,11 @@ const props = defineProps({
   showExport:        { type: Boolean, default: true },
   showReloadButton:  { type: Boolean, default: true },
 
+  // Cacheo en sessionStorage. Cuando true, al montar el componente intenta
+  // restaurar la última respuesta cacheada (≤10 min) y muestra el badge
+  // "Instant" hasta que el usuario haga reload manual.
+  cached: { type: Boolean, default: false },
+
   // Checkbox selection (multi-select).
   checkable:         { type: Boolean, default: false },
 
@@ -40,11 +47,26 @@ const props = defineProps({
 
   // Empty state.
   emptyMessage: { type: String, default: 'No hay registros.' },
+
+  // Variante visual:
+  //   'table' — clásico con filas, columnas y bordes (default)
+  //   'list'  — compacto tipo file-tree explorer (sin tabla, sin bordes de fila)
+  variant: { type: String, default: 'table' },
+
+  // ─── Preview overlay panel (mismo patrón que Table.Standard) ───────────
+  // El panel se activa automáticamente si el consumer declara <slot name="preview">.
+  // Click en una fila → set previewRow → overlay absoluto sobre la derecha de la tabla.
+  previewHref:       { type: [String, Function], default: null },
+  previewDeletable:  { type: Boolean, default: false },
+  autoClosePreview:  { type: Boolean, default: true },
+  /** Porcentaje inicial de la tabla (0-100). El resto lo ocupa el preview. */
+  splitRatio:        { type: Number, default: 55 },
 })
 
 const emit = defineEmits([
   'row-click', 'loaded', 'expand',
   'update:checked', 'export',
+  'preview-delete',
 ])
 
 const api = useApi()
@@ -54,6 +76,47 @@ const roots         = ref([])
 const meta          = ref(null)
 const loading       = ref(false)
 const isFetching    = ref(false)
+const isDataFromCache = ref(false)
+
+// ─── Preview state — la UI vive en <DataPreview>, este file solo le pasa la fila activa ─
+const previewEnabled = computed(() => !!slots.preview)
+const previewRow     = ref(null)
+const containerRef   = ref(null)
+const dataPreviewRef = ref(null)
+
+const closePreview = () => { previewRow.value = null }
+
+// Endpoint de historial — derivado del meta del backend.
+// El backend debe devolver { meta: { has_history: true, entity_type: 'departments' } }
+// para activar el tab "Bitácora" del DataPreview.
+const resolvedHistoryEndpoint = computed(() => {
+  if (!meta.value?.has_history || !previewRow.value?.id || !meta.value?.entity_type) return null
+  return `history/${meta.value.entity_type}/${previewRow.value.id}`
+})
+
+const { collapseDock } = useDockedPreviews()
+
+const handleRowClick = (node) => {
+  emit('row-click', node)
+  if (!previewEnabled.value) return
+  if (previewRow.value?.id === node.id) return
+  collapseDock()
+  previewRow.value = node
+}
+
+// ESC + click-fuera (la UI los maneja, este file detecta cuándo cerrar).
+const onEsc = (e) => {
+  if (e.key !== 'Escape') return
+  if (previewRow.value) closePreview()
+  else collapseDock()
+}
+const onDocMousedown = (e) => {
+  if (!props.autoClosePreview || !previewRow.value) return
+  const panelEl = dataPreviewRef.value?.panelRef
+  if (containerRef.value?.contains(e.target)) return
+  if (panelEl?.contains(e.target)) return
+  closePreview()
+}
 const search        = ref('')
 const expandedSet   = ref(new Set())
 const loadingSet    = ref(new Set())
@@ -107,11 +170,13 @@ const buildBody = (extra = {}) => ({
 const fetchInitial = async () => {
   loading.value = true
   isFetching.value = true
+  isDataFromCache.value = false
   try {
     const res = await api.post(props.endpoint, buildBody())
     roots.value = res?.data ?? []
     meta.value  = res?.meta ?? null
     childrenById.value = {}
+    if (props.cached) saveToCache()
     emit('loaded', res)
   } catch (e) {
     console.error('[Tree.Standard] initial fetch failed:', e)
@@ -119,6 +184,56 @@ const fetchInitial = async () => {
   } finally {
     loading.value = false
     isFetching.value = false
+  }
+}
+
+// ─── Cache ────────────────────────────────────────────────────────────────────
+const cacheKey = computed(() => {
+  if (!props.cached || !props.name) return null
+  const base = `tree_${props.name}`
+  if (!Object.keys(props.params).length) return base
+  try { return base + '_' + btoa(JSON.stringify(props.params)) } catch { return base }
+})
+
+const saveToCache = () => {
+  if (!cacheKey.value || !roots.value.length) return
+  try {
+    sessionStorage.setItem(cacheKey.value, JSON.stringify({
+      roots: roots.value,
+      meta: meta.value,
+      childrenById: childrenById.value,
+      expanded: [...expandedSet.value],
+      search: search.value,
+      filters: activeFilters.value,
+      columnVisibility: columnVisibility.value,
+      timestamp: Date.now(),
+    }))
+  } catch (e) {
+    console.warn('[Tree.Standard] cache save error:', e)
+  }
+}
+
+const loadFromCacheOnMount = () => {
+  if (!cacheKey.value) return false
+  try {
+    const raw = sessionStorage.getItem(cacheKey.value)
+    if (!raw) return false
+    const cached = JSON.parse(raw)
+    if (Date.now() - cached.timestamp > 10 * 60 * 1000) {
+      sessionStorage.removeItem(cacheKey.value)
+      return false
+    }
+    roots.value = cached.roots ?? []
+    meta.value = cached.meta ?? null
+    childrenById.value = cached.childrenById ?? {}
+    expandedSet.value = new Set(cached.expanded ?? [])
+    search.value = cached.search ?? ''
+    activeFilters.value = cached.filters ?? {}
+    columnVisibility.value = cached.columnVisibility ?? columnVisibility.value
+    isDataFromCache.value = true
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -218,10 +333,100 @@ const someChecked = computed(() =>
     && !allChecked.value
 )
 
+// ─── Tree-aware check helpers ─────────────────────────────────────────────────
+// Buscan en el árbol roots + en childrenById (lazy-loaded). Devuelven children
+// directos de un nodo, o lo buscan por id.
+const getChildren = (node) => {
+  if (Array.isArray(node.children) && node.children.length) return node.children
+  return childrenById.value[node.id] ?? []
+}
+
+const findNode = (id, nodes = roots.value) => {
+  for (const n of nodes) {
+    if (n.id === id) return n
+    const kids = getChildren(n)
+    if (kids.length) {
+      const found = findNode(id, kids)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+const findParent = (childId, nodes = roots.value, parent = null) => {
+  for (const n of nodes) {
+    if (n.id === childId) return parent
+    const kids = getChildren(n)
+    if (kids.length) {
+      const found = findParent(childId, kids, n)
+      if (found !== null || kids.some(k => k.id === childId)) return found ?? n
+    }
+  }
+  return null
+}
+
+// Todos los descendientes (no incluye el propio nodo).
+const getDescendantIds = (node) => {
+  const out = []
+  const walk = (n) => {
+    for (const c of getChildren(n)) {
+      out.push(c.id)
+      walk(c)
+    }
+  }
+  walk(node)
+  return out
+}
+
+// Estado de checked agregado de un nodo: { full, none, some } basado en hijos directos.
+const aggregateCheck = (node, set) => {
+  const kids = getChildren(node)
+  if (!kids.length) return set.has(node.id) ? 'full' : 'none'
+  let checked = 0
+  let partial = 0
+  for (const c of kids) {
+    const s = aggregateCheck(c, set)
+    if (s === 'full') checked++
+    else if (s === 'some') partial++
+  }
+  if (partial > 0) return 'some'
+  if (checked === 0) return 'none'
+  if (checked === kids.length) return 'full'
+  return 'some'
+}
+
+// indeterminateSet — nodos donde algunos descendientes están checked, no todos.
+const indeterminateSet = computed(() => {
+  const out = new Set()
+  const walk = (nodes) => {
+    for (const n of nodes) {
+      if (aggregateCheck(n, checkedSet.value) === 'some') out.add(n.id)
+      const kids = getChildren(n)
+      if (kids.length) walk(kids)
+    }
+  }
+  walk(roots.value)
+  return out
+})
+
 const toggleCheck = (node) => {
   const next = new Set(checkedSet.value)
-  if (next.has(node.id)) next.delete(node.id)
-  else next.add(node.id)
+  const ids = [node.id, ...getDescendantIds(node)]
+  const willCheck = !next.has(node.id)
+  for (const id of ids) {
+    if (willCheck) next.add(id)
+    else next.delete(id)
+  }
+
+  // Re-evaluar ancestros: un padre queda checked sólo si TODOS sus descendientes lo están.
+  let ancestor = findParent(node.id)
+  while (ancestor) {
+    const state = aggregateCheck(ancestor, next)
+    if (state === 'full') next.add(ancestor.id)
+    else next.delete(ancestor.id)
+    ancestor = findParent(ancestor.id)
+  }
+
   checkedSet.value = next
   emit('update:checked', [...next])
 }
@@ -283,7 +488,18 @@ const performExport = () => {
 }
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
-onMounted(fetchInitial)
+onMounted(() => {
+  window.addEventListener('keydown', onEsc)
+  document.addEventListener('mousedown', onDocMousedown)
+  // Si tenemos cache de datos válido, lo mostramos al toque sin esperar el fetch.
+  if (loadFromCacheOnMount()) return
+  fetchInitial()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onEsc)
+  document.removeEventListener('mousedown', onDocMousedown)
+})
 
 defineExpose({
   refresh: fetchInitial,
@@ -293,14 +509,14 @@ defineExpose({
 </script>
 
 <template>
-  <div class="relative">
+  <div class="relative" ref="containerRef">
 
     <!-- ── Toolbar ────────────────────────────────────────────────────────── -->
     <div class="flex flex-wrap items-center gap-2 mb-2">
 
       <!-- Search -->
       <div v-if="showSearch" class="flex-1 min-w-48 max-w-xs">
-        <Forms.Input v-model="search" type="search" :placeholder="searchPlaceholder" :icon-left="IconSearch" size="sm" />
+        <Forms.Input v-model="search" type="text" :placeholder="searchPlaceholder" :icon-right="IconSearch" size="sm" />
       </div>
 
       <!-- + Filtros -->
@@ -309,7 +525,7 @@ defineExpose({
           type="button"
           @click="openFilterMenu"
           :class="[
-            'inline-flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium rounded-lg border transition-colors',
+            'inline-flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium rounded-control border transition-colors',
             activeFilterList.length
               ? 'border-primary/40 bg-primary/10 text-primary'
               : 'border-card-line bg-card text-muted-foreground-1 hover:bg-muted-hover',
@@ -330,7 +546,7 @@ defineExpose({
         >
           <div
             v-if="showFilterPanel"
-            class="absolute left-0 top-full mt-1 z-30 w-80 bg-card border border-card-line rounded-xl shadow-xl p-4"
+            class="absolute left-0 top-full mt-1 z-30 w-80 bg-card border border-card-line rounded-popover shadow-xl p-4"
             @click.stop
           >
             <TableFilter :model-value="activeFilters" :columns="filterableColumns" @update:model-value="updateFilters" />
@@ -358,7 +574,7 @@ defineExpose({
             @click="showColumnPanel = !showColumnPanel"
             title="Columnas"
             :class="[
-              'p-1.5 inline-flex items-center justify-center rounded-lg border transition-colors',
+              'p-1.5 inline-flex items-center justify-center rounded-control border transition-colors',
               showColumnPanel
                 ? 'border-primary/40 bg-primary/10 text-primary'
                 : 'border-transparent text-muted-foreground hover:border-card-line hover:bg-muted-hover hover:text-foreground',
@@ -377,7 +593,7 @@ defineExpose({
           >
             <div
               v-if="showColumnPanel"
-              class="absolute right-0 top-full mt-1 z-30 w-56 bg-card border border-card-line rounded-xl shadow-xl p-2"
+              class="absolute right-0 top-full mt-1 z-30 w-56 bg-card border border-card-line rounded-popover shadow-xl p-2"
               @click.stop
             >
               <p class="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -385,7 +601,7 @@ defineExpose({
               </p>
               <ul class="mt-1 space-y-0.5">
                 <li v-for="col in columns" :key="col.key">
-                  <label class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted-hover cursor-pointer text-sm">
+                  <label class="flex items-center gap-2 px-2 py-1.5 rounded-control hover:bg-muted-hover cursor-pointer text-sm">
                     <input
                       type="checkbox"
                       :checked="columnVisibility[col.key] !== false"
@@ -408,7 +624,7 @@ defineExpose({
             @click="showExportPanel = !showExportPanel"
             title="Exportar"
             :class="[
-              'p-1.5 inline-flex items-center justify-center rounded-lg border transition-colors',
+              'p-1.5 inline-flex items-center justify-center rounded-control border transition-colors',
               showExportPanel
                 ? 'border-primary/40 bg-primary/10 text-primary'
                 : 'border-transparent text-muted-foreground hover:border-card-line hover:bg-muted-hover hover:text-foreground',
@@ -427,7 +643,7 @@ defineExpose({
           >
             <div
               v-if="showExportPanel"
-              class="absolute right-0 top-full mt-1 z-30 w-72 bg-card border border-card-line rounded-xl shadow-xl p-3 space-y-3"
+              class="absolute right-0 top-full mt-1 z-30 w-72 bg-card border border-card-line rounded-popover shadow-xl p-3 space-y-3"
               @click.stop
             >
               <div>
@@ -435,7 +651,7 @@ defineExpose({
                 <input
                   v-model="exportFilename"
                   type="text"
-                  class="w-full text-sm px-2 py-1.5 border border-card-line rounded-md bg-transparent focus:outline-none focus:border-primary/50"
+                  class="innertia-field innertia-field-sm"
                 />
               </div>
               <div>
@@ -447,7 +663,7 @@ defineExpose({
                     type="button"
                     @click="exportFormat = f.value"
                     :class="[
-                      'flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border transition-colors',
+                      'flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-control border transition-colors',
                       exportFormat === f.value
                         ? 'border-primary/40 bg-primary/10 text-primary'
                         : 'border-card-line text-foreground hover:bg-muted-hover',
@@ -467,24 +683,13 @@ defineExpose({
                 <button
                   type="button"
                   @click="performExport"
-                  class="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary-hover"
+                  class="text-xs px-3 py-1.5 rounded-control bg-primary text-primary-foreground hover:bg-primary-hover"
                 >Exportar</button>
               </div>
             </div>
           </Transition>
         </div>
 
-        <!-- Reload -->
-        <button
-          v-if="showReloadButton"
-          type="button"
-          @click="fetchInitial"
-          :disabled="isFetching"
-          title="Recargar"
-          class="p-1.5 inline-flex items-center justify-center rounded-lg border border-transparent text-muted-foreground hover:border-card-line hover:bg-muted-hover hover:text-foreground transition-colors disabled:opacity-50"
-        >
-          <IconRefresh class="size-4" :class="isFetching ? 'animate-spin' : ''" />
-        </button>
       </div>
     </div>
 
@@ -493,7 +698,7 @@ defineExpose({
       <div
         v-for="chip in activeFilterList"
         :key="chip.key"
-        class="inline-flex items-center text-xs rounded-lg border border-card-line bg-card overflow-hidden"
+        class="inline-flex items-center text-xs rounded-control border border-card-line bg-card overflow-hidden"
       >
         <span class="px-2.5 py-1 text-foreground font-medium border-r border-card-line bg-surface">{{ chip.label }}</span>
         <span class="px-2 py-1 text-primary font-medium">{{ chip.displayVal }}</span>
@@ -507,29 +712,14 @@ defineExpose({
       </div>
     </div>
 
-    <!-- ── Selection bar (when items checked) ─────────────────────────────── -->
+    <!-- ── Table wrapper (rounded + scroll) ───────────────────────────────── -->
     <div
-      v-if="checkable && checkedSet.size > 0"
-      class="flex items-center justify-between gap-2 mb-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20"
+      class="border border-card-line rounded-card overflow-hidden flex flex-col w-full"
     >
-      <span class="text-sm text-primary font-medium">
-        {{ checkedSet.size }} seleccionado{{ checkedSet.size === 1 ? '' : 's' }}
-      </span>
-      <div class="flex items-center gap-2">
-        <slot name="selection-actions" :checked="[...checkedSet]" :clear="clearChecked" />
-        <button
-          type="button"
-          @click="clearChecked"
-          class="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-        >
-          <IconX class="size-3" /> Limpiar
-        </button>
-      </div>
-    </div>
+      <div class="overflow-auto" style="min-height: 30rem; max-height: 36rem">
 
-    <!-- ── Table wrapper (rounded) ────────────────────────────────────────── -->
-    <div class="overflow-x-auto border border-card-line rounded-xl">
-      <table class="w-full divide-y divide-card-line" style="table-layout: auto">
+        <!-- ════════════ Variante 'table' ════════════ -->
+        <table v-if="variant === 'table'" class="w-full divide-y divide-card-line" style="table-layout: auto">
 
         <!-- Header -->
         <thead class="relative z-10 bg-card">
@@ -596,10 +786,11 @@ defineExpose({
               :name-col-key="nameColKey"
               :checkable="checkable"
               :checked-set="checkedSet"
+              :indeterminate-set="indeterminateSet"
               :column-visibility="columnVisibility"
               @toggle="toggle"
               @check="toggleCheck"
-              @row-click="(n) => emit('row-click', n)"
+              @row-click="handleRowClick"
             >
               <template v-for="col in columns" :key="col.key" #[`cell-${col.key}`]="slotProps">
                 <slot :name="`cell-${col.key}`" v-bind="slotProps" />
@@ -607,17 +798,114 @@ defineExpose({
             </TreeNode>
           </template>
         </tbody>
-      </table>
-    </div>
+        </table>
 
-    <!-- ── Footer ─────────────────────────────────────────────────────────── -->
-    <div class="flex items-center justify-between gap-2 mt-2 px-1 text-xs text-muted-foreground">
-      <div class="flex items-center gap-2">
-        <IconLoader2 v-if="isFetching && !loading" class="size-3.5 animate-spin" />
-        <span>{{ totalRendered }} {{ totalRendered === 1 ? 'nodo' : 'nodos' }}</span>
+        <!-- ════════════ Variante 'list' (compacto, sin tabla) ════════════ -->
+        <div v-else class="py-2">
+          <!-- Loading skeleton -->
+          <div v-if="loading" class="space-y-1 px-2">
+            <div v-for="i in 6" :key="`sk-${i}`" class="h-7 bg-muted/60 rounded animate-pulse" :style="{ width: `${60 + (i % 3) * 10}%` }" />
+          </div>
+
+          <!-- Empty -->
+          <div v-else-if="!roots.length" class="py-12 text-center text-sm text-muted-foreground">
+            {{ emptyMessage }}
+          </div>
+
+          <!-- Tree -->
+          <div v-else class="px-1.5">
+            <TreeNode
+              v-for="root in roots"
+              :key="root.id"
+              :node="root"
+              :columns="columns"
+              :depth="0"
+              variant="list"
+              :expanded="expandedSet"
+              :loading-set="loadingSet"
+              :children-by-id="childrenById"
+              :row-href="rowHref"
+              :clickable-rows="clickableRows"
+              :name-col-key="nameColKey"
+              :checkable="checkable"
+              :checked-set="checkedSet"
+              :indeterminate-set="indeterminateSet"
+              :column-visibility="columnVisibility"
+              @toggle="toggle"
+              @check="toggleCheck"
+              @row-click="handleRowClick"
+            >
+              <template v-for="col in columns" :key="col.key" #[`cell-${col.key}`]="slotProps">
+                <slot :name="`cell-${col.key}`" v-bind="slotProps" />
+              </template>
+            </TreeNode>
+          </div>
+        </div>
       </div>
-      <div></div>
+
+      <!-- ── Footer bar (reload + total + cache badge) — DENTRO del wrapper ── -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-y-3 sm:gap-y-0 px-4 py-3 border-t border-card-line bg-card">
+        <div class="flex items-center gap-x-4 flex-wrap gap-y-2">
+          <!-- Reload button -->
+          <div v-if="showReloadButton" class="flex items-center gap-x-2">
+            <IconReload
+              v-if="!isFetching"
+              class="size-4 cursor-pointer text-muted-foreground hover:text-muted-foreground-1 transition-colors"
+              @click="fetchInitial"
+            />
+            <IconLoader2 v-else class="size-4 text-muted-foreground-2 animate-spin" />
+          </div>
+
+          <!-- Total nodes -->
+          <p class="text-sm text-foreground font-medium">
+            {{ totalRendered }} {{ totalRendered === 1 ? 'nodo' : 'nodos' }}
+          </p>
+
+          <!-- Cache badge (instant) -->
+          <div v-if="isDataFromCache && cached" class="group relative flex items-center">
+            <div class="flex items-center gap-x-1.5 py-1 px-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-badge cursor-help hover:bg-emerald-500/20 transition-colors">
+              <IconBolt class="size-3.5 fill-current" />
+              <span class="text-[10px] font-bold uppercase tracking-wider">Instant</span>
+            </div>
+            <div class="absolute bottom-full mb-2 left-0 hidden group-hover:block w-48 p-2.5 bg-slate-900 text-white text-[11px] leading-relaxed rounded-popover shadow-2xl z-50">
+              <div class="font-bold mb-1 flex items-center gap-x-1.5 text-emerald-400">
+                <IconBolt class="size-3" /> Datos en caché
+              </div>
+              Se cargaron al instante desde la memoria local. Hacé reload para sincronizar con el servidor.
+              <div class="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+    <!-- ↑ table wrapper cierra acá. DataPreview va FUERA como hermano. -->
+
+    <!-- ── Preview compartido (panel overlay + chip flotante) ───────────── -->
+    <DataPreview
+      ref="dataPreviewRef"
+      v-model:row="previewRow"
+      :enabled="previewEnabled"
+      :name="props.name || 'tree'"
+      :cached="cached"
+      :preview-href="previewHref"
+      :preview-deletable="previewDeletable"
+      :split-ratio="splitRatio"
+      :container-ref="containerRef"
+      :history-endpoint="resolvedHistoryEndpoint"
+      @delete="emit('preview-delete', $event)"
+    >
+      <template #header="bind">
+        <slot name="preview-header" v-bind="bind">
+          <div class="font-semibold text-foreground truncate">{{ bind.row.name ?? 'Detalle' }}</div>
+        </slot>
+      </template>
+      <template #actions="bind">
+        <slot name="preview-actions" v-bind="bind" />
+      </template>
+      <template #default="bind">
+        <slot name="preview" v-bind="bind" />
+      </template>
+    </DataPreview>
 
   </div>
 </template>

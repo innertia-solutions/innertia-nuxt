@@ -135,7 +135,7 @@ defineExpose({ reload, rows })
       <div
         v-for="state in states"
         :key="state.key"
-        class="flex-shrink-0 w-72 flex flex-col rounded-xl border border-card-line overflow-hidden transition-shadow"
+        class="flex-shrink-0 w-72 flex flex-col rounded-card border border-card-line overflow-hidden transition-shadow"
         :class="dragOverState === state.key ? getColors(state).over : ''"
         @dragover="onDragOver($event, state.key)"
         @dragleave="onDragLeave"
@@ -144,7 +144,7 @@ defineExpose({ reload, rows })
         <!-- Column header -->
         <div :class="['px-4 py-3 flex items-center justify-between', getColors(state).header]">
           <span class="font-semibold text-sm">{{ state.label }}</span>
-          <span class="text-xs font-bold bg-white/60 dark:bg-black/20 rounded-full px-2 py-0.5">
+          <span class="text-xs font-bold bg-white/60 dark:bg-black/20 rounded-badge px-2 py-0.5">
             {{ columnRows[state.key]?.length ?? 0 }}
           </span>
         </div>
@@ -156,7 +156,7 @@ defineExpose({ reload, rows })
             :key="row.id"
             draggable="true"
             @dragstart="onDragStart(row, state.key)"
-            class="bg-card border border-card-line rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow select-none"
+            class="bg-card border border-card-line rounded-card p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow select-none"
             :class="draggedId === row.id ? 'opacity-40' : ''"
             @click="emit('card-click', row)"
           >

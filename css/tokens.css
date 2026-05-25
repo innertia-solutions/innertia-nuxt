@@ -1,0 +1,90 @@
+/* ============================================================================
+ * Semantic tokens — innertia-nuxt design system
+ * ============================================================================
+ *
+ * Capa intermedia entre los *primitives* (--radius-xs, --color-zinc-500, etc.)
+ * y los *componentes*. Los componentes referencian estos tokens semánticos —
+ * NUNCA primitivos directos. Eso permite a los templates redefinir la
+ * personalidad del sistema sin tocar componente por componente.
+ *
+ *   primitives   →   semantic tokens   →   componentes
+ *   --radius-md       --radius-control      Button, Input, Select
+ *
+ * Los templates (sharp, default, cozy, brutalist…) viven en css/templates/*
+ * y solo redefinen estos tokens semánticos. NO redefinen primitivos.
+ * ============================================================================ */
+
+@theme inline {
+  /* ─── Radius ───────────────────────────────────────────────────────────
+   * Categorización por *función*, no por tamaño. */
+  --radius-control:  var(--radius-md);    /* botones, inputs, selects */
+  --radius-card:     var(--radius-lg);    /* cards, tiles, paneles */
+  --radius-surface:  var(--radius-lg);    /* sidebars, headers */
+  --radius-modal:    var(--radius-xl);    /* dialogs, sheets, drawers */
+  --radius-popover:  var(--radius-md);    /* dropdowns, menus, tooltips */
+  --radius-badge:    var(--radius-full);  /* chips, tags, status pills */
+  --radius-avatar:   var(--radius-full);  /* avatares circulares */
+
+  /* ─── Fields (controles de formulario) ─────────────────────────────────
+   * TODOS los inputs/selects/datepicker comparten estos tokens. Un template
+   * puede redefinirlos una vez y todos los controles del producto cambian
+   * coherentemente. */
+  --field-height:           2.5rem;                       /* 40px */
+  --field-height-sm:        2rem;                         /* 32px */
+  --field-padding-x:        0.875rem;                     /* 14px */
+  --field-border-width:     1px;
+  --field-font-size:        0.875rem;                     /* text-sm */
+  --field-font-size-sm:     0.8125rem;                    /* text-[13px] */
+  --field-bg:               var(--color-card);
+  --field-dropdown-bg:      var(--field-bg);
+  --field-border:           var(--color-card-line);
+  --field-text:             var(--color-foreground);
+  --field-placeholder:      var(--color-muted-foreground-2);
+  --field-focus-border:     color-mix(in srgb, var(--color-primary) 45%, var(--color-card-line) 55%);
+  --field-disabled-opacity: 0.5;
+  --field-disabled-bg:      var(--color-muted);
+}
+
+/* ─── Clase compartida: .innertia-field ────────────────────────────────────
+ * Aplicada a CUALQUIER control input/select/datepicker para asegurar
+ * apariencia unificada. Si necesitás un tamaño chico, agregá .innertia-field-sm. */
+.innertia-field {
+  display: block;
+  width: 100%;
+  height: var(--field-height);
+  padding: 0 var(--field-padding-x);
+  font-size: var(--field-font-size);
+  line-height: 1.25rem;
+  color: var(--field-text);
+  background: var(--field-bg);
+  border: var(--field-border-width) solid var(--field-border);
+  border-radius: var(--radius-control);
+  outline: none;
+  appearance: none;
+}
+
+.innertia-field::placeholder {
+  color: var(--field-placeholder);
+  opacity: 1;
+}
+
+.innertia-field:focus,
+.innertia-field:focus-visible,
+.innertia-field:focus-within {
+  border-color: var(--field-focus-border);
+  box-shadow: none;
+}
+
+.innertia-field:disabled,
+.innertia-field[disabled],
+.innertia-field[aria-disabled="true"] {
+  opacity: var(--field-disabled-opacity);
+  background: var(--field-disabled-bg);
+  pointer-events: none;
+}
+
+.innertia-field-sm {
+  height: var(--field-height-sm);
+  font-size: var(--field-font-size-sm);
+  padding: 0 0.75rem;
+}

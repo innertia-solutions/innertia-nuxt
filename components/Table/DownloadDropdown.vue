@@ -31,7 +31,7 @@ const exportTable = (format) => {
     <button
       id="hs-as-table-table-export-dropdown"
       type="button"
-      class="py-1.5 sm:py-2 px-2.5 inline-flex items-center gap-x-1.5 text-sm sm:text-xs font-medium rounded-lg border border-card-line bg-card text-foreground shadow-2xs hover:bg-muted-hover disabled:opacity-50 disabled:pointer-events-none focus:outline-hidden focus:bg-muted-hover"
+      class="py-1.5 sm:py-2 px-2.5 inline-flex items-center gap-x-1.5 text-sm sm:text-xs font-medium rounded-control border border-card-line bg-card text-foreground shadow-2xs hover:bg-muted-hover disabled:opacity-50 disabled:pointer-events-none focus:outline-hidden focus:bg-muted-hover"
       aria-haspopup="menu"
       aria-expanded="false"
       aria-label="Dropdown"
@@ -40,14 +40,14 @@ const exportTable = (format) => {
       Exportar
     </button>
     <div
-      class="hs-dropdown-menu transition-[opacity,margin] duration hs-dropdown-open:opacity-100 opacity-0 hidden divide-y divide-card-line min-w-48 z-10 bg-dropdown shadow-md rounded-lg p-2 mt-2 dark:border dark:border-dropdown-line border-t border-card-line"
+      class="hs-dropdown-menu transition-[opacity,margin] duration hs-dropdown-open:opacity-100 opacity-0 hidden divide-y divide-card-line min-w-48 z-10 bg-dropdown shadow-md rounded-popover p-2 mt-2 dark:border dark:border-dropdown-line border-t border-card-line"
       role="menu"
       aria-orientation="vertical"
       aria-labelledby="hs-as-table-table-export-dropdown"
     >
       <div class="py-2 first:pt-0 last:pb-0">
         <a
-          class="flex items-center gap-x-3 py-2 px-3 rounded-lg text-sm text-foreground hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover"
+          class="flex items-center gap-x-3 py-2 px-3 rounded-control text-sm text-foreground hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover"
           href="#"
           @click="exportTable('xlsx')"
         >
@@ -55,7 +55,7 @@ const exportTable = (format) => {
           Excel
         </a>
         <a
-          class="flex items-center gap-x-3 py-2 px-3 rounded-lg text-sm text-foreground hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover"
+          class="flex items-center gap-x-3 py-2 px-3 rounded-control text-sm text-foreground hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover"
           href="#"
           @click="exportTable('csv')"
         >
@@ -63,7 +63,7 @@ const exportTable = (format) => {
           CSV
         </a>
         <a
-          class="flex items-center gap-x-3 py-2 px-3 rounded-lg text-sm text-foreground hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover"
+          class="flex items-center gap-x-3 py-2 px-3 rounded-control text-sm text-foreground hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover"
           href="#"
           @click="exportTable('pdf')"
         >
@@ -71,7 +71,7 @@ const exportTable = (format) => {
           PDF
         </a>
         <a
-          class="flex items-center gap-x-3 py-2 px-3 rounded-lg text-sm text-foreground hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover"
+          class="flex items-center gap-x-3 py-2 px-3 rounded-control text-sm text-foreground hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover"
           href="#"
           @click="exportTable('json')"
         >
@@ -90,7 +90,7 @@ const exportTable = (format) => {
           <input
             type="checkbox"
             v-model="exportAllPages"
-            class="shrink-0 border-card-line rounded-sm text-blue-600 focus:ring-blue-500 dark:bg-card"
+            class="shrink-0 border-card-line rounded-control text-blue-600 focus:ring-blue-500 dark:bg-card"
           />
           Todas las páginas
         </label>
@@ -101,7 +101,7 @@ const exportTable = (format) => {
           <input
             type="checkbox"
             v-model="exportFilteredRows"
-            class="shrink-0 border-card-line rounded-sm text-blue-600 focus:ring-blue-500 dark:bg-card"
+            class="shrink-0 border-card-line rounded-control text-blue-600 focus:ring-blue-500 dark:bg-card"
           />
           Solo filas filtradas
         </label>

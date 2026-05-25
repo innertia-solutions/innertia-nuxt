@@ -601,7 +601,7 @@ defineExpose({
                     :checked="table.getIsAllRowsSelected()"
                     :indeterminate="table.getIsSomeRowsSelected()"
                     @change="table.getToggleAllRowsSelectedHandler()($event)"
-                    class="mx-2 shrink-0 border-card-line rounded-sm text-blue-900 focus:ring-0 focus:ring-offset-0 dark:bg-card"
+                    class="mx-2 shrink-0 border-card-line rounded-control text-blue-900 focus:ring-0 focus:ring-offset-0 dark:bg-card"
                   />
                 </template>
                 <!-- Regular column header -->
@@ -659,7 +659,7 @@ defineExpose({
                   :value="header.column.getFilterValue() ?? ''"
                   @input="(e) => header.column.setFilterValue(e.target.value || undefined)"
                   :placeholder="`Filtrar ${header.column.columnDef.meta?.label ?? ''}...`"
-                  class="w-full bg-card border border-card-line rounded-lg text-xs text-muted-foreground-1 px-2.5 py-1 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 dark:focus:border-indigo-500 outline-none transition-all"
+                  class="w-full bg-card border border-card-line rounded-control text-xs text-muted-foreground-1 px-2.5 py-1 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 dark:focus:border-indigo-500 outline-none transition-all"
                 />
               </th>
             </tr>
@@ -784,7 +784,7 @@ defineExpose({
       <!-- Empty state overlays -->
       <div
         v-if="!loading && tableData.length === 0 && !search && !columnFilters.length"
-        class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center backdrop-blur-sm bg-card/60 rounded-xl"
+        class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center backdrop-blur-sm bg-card/60 rounded-card"
       >
         <slot name="empty">
           <p class="text-muted-foreground text-lg font-medium italic">No hay registros</p>
@@ -793,7 +793,7 @@ defineExpose({
 
       <div
         v-if="!loading && tableData.length === 0 && (search || columnFilters.length)"
-        class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center backdrop-blur-sm bg-card/60 rounded-xl"
+        class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center backdrop-blur-sm bg-card/60 rounded-card"
       >
         <slot name="empty-search">
           <p class="text-muted-foreground text-lg font-medium italic">No hay registros en la búsqueda</p>
@@ -806,7 +806,7 @@ defineExpose({
       <div v-if="loading" :class="gridClass">
         <div v-for="(_, i) in skeletonRows" :key="'gsk-' + i" class="animate-pulse">
           <slot name="grid-skeleton">
-            <div class="bg-card rounded-lg border border-card-line p-4">
+            <div class="bg-card rounded-card border border-card-line p-4">
               <div class="space-y-3">
                 <div class="h-4 bg-surface-1 rounded w-3/4"></div>
                 <div class="h-4 bg-surface-1 rounded w-1/2"></div>
@@ -828,7 +828,7 @@ defineExpose({
           :checkable="checkable"
           :toggle-row="() => row.toggleSelected()"
         >
-          <div class="bg-card rounded-lg border border-card-line p-4 hover:shadow-md transition-shadow relative"
+          <div class="bg-card rounded-card border border-card-line p-4 hover:shadow-md transition-shadow relative"
             :class="{ 'ring-2 ring-indigo-400 dark:ring-indigo-600': row.getIsSelected() }">
             <div v-if="checkable" class="absolute top-2 left-2 z-10">
               <input type="checkbox" :checked="row.getIsSelected()" @change="row.toggleSelected()"
@@ -880,11 +880,11 @@ defineExpose({
 
         <!-- Cache badge -->
         <div v-if="isDataFromCache && cached" class="group relative flex items-center">
-          <div class="flex items-center gap-x-1.5 py-1 px-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg cursor-help hover:bg-emerald-500/20 transition-colors">
+          <div class="flex items-center gap-x-1.5 py-1 px-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-badge cursor-help hover:bg-emerald-500/20 transition-colors">
             <IconBolt class="size-3.5 fill-current" />
             <span class="text-[10px] font-bold uppercase tracking-wider">Instant</span>
           </div>
-          <div class="absolute bottom-full mb-2 left-0 hidden group-hover:block w-48 p-2.5 bg-slate-900 text-white text-[11px] leading-relaxed rounded-xl shadow-2xl z-50">
+          <div class="absolute bottom-full mb-2 left-0 hidden group-hover:block w-48 p-2.5 bg-slate-900 text-white text-[11px] leading-relaxed rounded-popover shadow-2xl z-50">
             <div class="font-bold mb-1 flex items-center gap-x-1.5 text-emerald-400">
               <IconBolt class="size-3" /> Datos en Caché
             </div>
@@ -904,7 +904,7 @@ defineExpose({
             v-if="!isCustomPerPage"
             :value="pagination.pageSize"
             @change="(e) => handlePerPageChange(e.target.value)"
-            class="bg-surface border-none text-[11px] font-bold text-muted-foreground-1 rounded-lg focus:ring-0 cursor-pointer py-1 pl-2 pr-8"
+            class="bg-surface border-none text-[11px] font-bold text-muted-foreground-1 rounded-control focus:ring-0 cursor-pointer py-1 pl-2 pr-8"
           >
             <option :value="10">10</option>
             <option :value="25">25</option>
@@ -918,7 +918,7 @@ defineExpose({
               :value="pagination.pageSize"
               @change="(e) => table.setPageSize(parseInt(e.target.value) || 10)"
               min="1" max="500"
-              class="w-14 bg-surface border-none text-[11px] font-bold text-muted-foreground-1 rounded-lg focus:ring-2 focus:ring-indigo-500/20 py-1 px-2"
+              class="w-14 bg-surface border-none text-[11px] font-bold text-muted-foreground-1 rounded-control focus:ring-2 focus:ring-indigo-500/20 py-1 px-2"
             />
             <button @click="resetPerPage" class="text-[10px] text-indigo-500 font-bold hover:underline">Volver</button>
           </div>
@@ -928,7 +928,7 @@ defineExpose({
         <nav class="flex justify-end items-center gap-x-1" aria-label="Pagination">
           <button
             type="button"
-            class="size-8 flex items-center justify-center rounded-lg text-foreground hover:bg-muted-hover disabled:opacity-30"
+            class="size-8 flex items-center justify-center rounded-control text-foreground hover:bg-muted-hover disabled:opacity-30"
             :disabled="!table.getCanPreviousPage()"
             @click="table.previousPage()"
           >
@@ -937,7 +937,7 @@ defineExpose({
             </svg>
           </button>
           <div class="flex items-center gap-x-1 mx-2">
-            <span class="size-8 flex items-center justify-center text-xs font-bold rounded-lg bg-surface text-foreground">
+            <span class="size-8 flex items-center justify-center text-xs font-bold rounded-control bg-surface text-foreground">
               {{ pagination.pageIndex + 1 }}
             </span>
             <span class="text-[10px] font-bold text-muted-foreground uppercase mx-1">de</span>
@@ -945,7 +945,7 @@ defineExpose({
           </div>
           <button
             type="button"
-            class="size-8 flex items-center justify-center rounded-lg text-foreground hover:bg-muted-hover disabled:opacity-30"
+            class="size-8 flex items-center justify-center rounded-control text-foreground hover:bg-muted-hover disabled:opacity-30"
             :disabled="!table.getCanNextPage()"
             @click="table.nextPage()"
           >

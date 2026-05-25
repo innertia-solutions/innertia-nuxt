@@ -436,7 +436,7 @@ const handleRowKeydown = (row, event) => {
                 type="checkbox"
                 :checked="isAllVisibleSelected"
                 @change="toggleSelectAll"
-                class="mx-2 shrink-0 border-gray-300 rounded-sm text-blue-900 focus:ring-blue-900 dark:bg-card border-card-line"
+                class="mx-2 shrink-0 border-gray-300 rounded-control text-blue-900 focus:ring-blue-900 dark:bg-card border-card-line"
               />
             </th>
             <th
@@ -538,7 +538,7 @@ const handleRowKeydown = (row, event) => {
       <!-- Empty overlays -->
       <div
         v-if="!loading && data.length === 0 && !search"
-        class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center backdrop-blur-sm bg-card/60 transition-all rounded-xl"
+        class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center backdrop-blur-sm bg-card/60 transition-all rounded-card"
       >
         <slot name="empty">
           <p class="text-muted-foreground text-lg font-medium italic">No hay registros</p>
@@ -547,7 +547,7 @@ const handleRowKeydown = (row, event) => {
 
       <div
         v-if="!loading && data.length === 0 && search"
-        class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center backdrop-blur-sm bg-card/60 transition-all rounded-xl"
+        class="absolute inset-0 z-10 pointer-events-none flex items-center justify-center backdrop-blur-sm bg-card/60 transition-all rounded-card"
       >
         <slot name="empty-search">
           <p class="text-muted-foreground text-lg font-medium italic">No hay registros en la búsqueda</p>
@@ -561,7 +561,7 @@ const handleRowKeydown = (row, event) => {
       <div v-if="loading" :class="gridClass">
         <div v-for="(_, index) in skeletonRows" :key="'grid-skeleton-' + index" class="animate-pulse">
           <slot name="grid-skeleton">
-            <div class="bg-card rounded-lg border border-card-line p-4">
+            <div class="bg-card rounded-card border border-card-line p-4">
               <div class="space-y-3">
                 <div class="h-4 bg-surface-1 rounded w-3/4"></div>
                 <div class="h-4 bg-surface-1 rounded w-1/2"></div>
@@ -583,7 +583,7 @@ const handleRowKeydown = (row, event) => {
           :checkable="checkable"
           :toggleRow="() => toggleRow(row)"
         >
-          <div class="bg-card rounded-lg border border-card-line p-4 hover:shadow-md transition-shadow relative">
+          <div class="bg-card rounded-card border border-card-line p-4 hover:shadow-md transition-shadow relative">
             <div v-if="checkable" class="absolute top-2 left-2 z-10">
               <input
                 type="checkbox"
@@ -636,11 +636,11 @@ const handleRowKeydown = (row, event) => {
         <p class="text-sm text-foreground font-medium">{{ meta.total }} registros</p>
 
         <div v-if="isDataFromCache && cached" class="group relative flex items-center">
-          <div class="flex items-center gap-x-1.5 py-1 px-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg cursor-help transition-colors hover:bg-emerald-500/20">
+          <div class="flex items-center gap-x-1.5 py-1 px-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-badge cursor-help transition-colors hover:bg-emerald-500/20">
             <IconBolt class="size-3.5 fill-current" />
             <span class="text-[10px] font-bold uppercase tracking-wider">Instant</span>
           </div>
-          <div class="absolute bottom-full mb-2 left-0 hidden group-hover:block w-48 p-2.5 bg-slate-900 text-white text-[11px] leading-relaxed rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in duration-200">
+          <div class="absolute bottom-full mb-2 left-0 hidden group-hover:block w-48 p-2.5 bg-slate-900 text-white text-[11px] leading-relaxed rounded-popover shadow-2xl z-50 animate-in fade-in zoom-in duration-200">
             <div class="font-bold mb-1 flex items-center gap-x-1.5 text-emerald-400">
               <IconBolt class="size-3" />
               Datos en Caché
@@ -659,7 +659,7 @@ const handleRowKeydown = (row, event) => {
             v-if="!isCustomPerPage"
             :value="perPage"
             @change="(e) => handlePerPageChange(e.target.value)"
-            class="bg-surface border-none text-[11px] font-bold text-muted-foreground-1 rounded-lg focus:ring-0 cursor-pointer py-1 pl-2 pr-8"
+            class="bg-surface border-none text-[11px] font-bold text-muted-foreground-1 rounded-control focus:ring-0 cursor-pointer py-1 pl-2 pr-8"
           >
             <option :value="10">10</option>
             <option :value="25">25</option>
@@ -673,7 +673,7 @@ const handleRowKeydown = (row, event) => {
               v-model.number="perPage"
               min="1"
               max="500"
-              class="w-14 bg-surface border-none text-[11px] font-bold text-muted-foreground-1 rounded-lg focus:ring-2 focus:ring-indigo-500/20 py-1 px-2"
+              class="w-14 bg-surface border-none text-[11px] font-bold text-muted-foreground-1 rounded-control focus:ring-2 focus:ring-indigo-500/20 py-1 px-2"
               @blur="perPage = perPage || 10"
             />
             <button @click="resetPerPage" class="text-[10px] text-indigo-500 font-bold hover:underline">Volver</button>
@@ -683,7 +683,7 @@ const handleRowKeydown = (row, event) => {
         <nav class="flex justify-end items-center gap-x-1" aria-label="Pagination">
           <button
             type="button"
-            class="size-8 flex items-center justify-center rounded-lg text-foreground hover:bg-muted-hover disabled:opacity-30"
+            class="size-8 flex items-center justify-center rounded-control text-foreground hover:bg-muted-hover disabled:opacity-30"
             :disabled="page <= 1"
             @click="goToPreviousPage"
           >
@@ -692,13 +692,13 @@ const handleRowKeydown = (row, event) => {
             </svg>
           </button>
           <div class="flex items-center gap-x-1 mx-2">
-            <span class="size-8 flex items-center justify-center text-xs font-bold rounded-lg bg-surface text-foreground">{{ meta.current_page }}</span>
+            <span class="size-8 flex items-center justify-center text-xs font-bold rounded-control bg-surface text-foreground">{{ meta.current_page }}</span>
             <span class="text-[10px] font-bold text-muted-foreground uppercase mx-1">de</span>
             <span class="text-[10px] font-bold text-muted-foreground">{{ meta.last_page }}</span>
           </div>
           <button
             type="button"
-            class="size-8 flex items-center justify-center rounded-lg text-foreground hover:bg-muted-hover disabled:opacity-30"
+            class="size-8 flex items-center justify-center rounded-control text-foreground hover:bg-muted-hover disabled:opacity-30"
             :disabled="page >= meta.last_page"
             @click="goToNextPage"
           >

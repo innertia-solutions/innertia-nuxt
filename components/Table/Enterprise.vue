@@ -248,7 +248,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
 
 <template>
   <div class="relative" ref="containerRef">
-    <div class="bg-card border border-card-line rounded-2xl shadow-sm overflow-hidden">
+    <div class="bg-card border border-card-line rounded-card shadow-sm overflow-hidden">
 
       <!-- ── Toolbar ──────────────────────────────────────────────────────── -->
       <div class="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-card-line">
@@ -264,7 +264,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
           type="button"
           @click="showFilterPanel = !showFilterPanel"
           :class="[
-            'py-1.5 px-3 inline-flex items-center gap-1.5 text-sm font-medium rounded-lg border transition-colors',
+            'py-1.5 px-3 inline-flex items-center gap-1.5 text-sm font-medium rounded-control border transition-colors',
             showFilterPanel || activeFilterCount > 0
               ? 'border-primary/50 bg-primary/5 text-primary dark:bg-primary/10'
               : 'border-card-line bg-card text-muted-foreground-1 hover:bg-muted-hover',
@@ -286,7 +286,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
         <button
           v-if="showSaveView"
           type="button"
-          class="py-1.5 px-3 inline-flex items-center gap-1.5 text-sm font-medium rounded-lg border border-card-line bg-card text-muted-foreground-1 hover:bg-muted-hover transition-colors"
+          class="py-1.5 px-3 inline-flex items-center gap-1.5 text-sm font-medium rounded-control border border-card-line bg-card text-muted-foreground-1 hover:bg-muted-hover transition-colors"
           @click="emit('save-view')"
         >
           <IconBookmark class="size-4" stroke="1.5" />
@@ -300,7 +300,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
           type="button"
           @click="showColumnPanel = !showColumnPanel"
           :class="[
-            'py-1.5 px-3 inline-flex items-center gap-1.5 text-sm font-medium rounded-lg border transition-colors',
+            'py-1.5 px-3 inline-flex items-center gap-1.5 text-sm font-medium rounded-control border transition-colors',
             showColumnPanel
               ? 'border-primary/50 bg-primary/5 text-primary dark:bg-primary/10'
               : 'border-card-line bg-card text-muted-foreground-1 hover:bg-muted-hover',
@@ -333,7 +333,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
               type="button"
               @click="openChip = openChip === chip.key ? null : chip.key"
               :class="[
-                'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm border transition-colors',
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-badge text-sm border transition-colors',
                 chipValues[chip.key]
                   ? 'border-primary/50 bg-primary/5 text-primary font-medium dark:bg-primary/10'
                   : 'border-card-line bg-card text-muted-foreground hover:bg-muted-hover',
@@ -358,7 +358,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
               <div
                 v-if="openChip === chip.key"
                 v-click-outside="() => openChip = null"
-                class="absolute top-full left-0 z-50 mt-1 bg-dropdown border border-dropdown-line rounded-xl shadow-xl py-1 min-w-40"
+                class="absolute top-full left-0 z-50 mt-1 bg-dropdown border border-dropdown-line rounded-popover shadow-xl py-1 min-w-40"
               >
                 <button
                   type="button"
@@ -405,7 +405,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
         <div
           v-if="showFilterPanel"
           ref="filterPanelRef"
-          class="absolute top-14 left-4 z-50 bg-dropdown border border-dropdown-line rounded-xl shadow-2xl p-3 min-w-64 max-h-96 overflow-y-auto"
+          class="absolute top-14 left-4 z-50 bg-dropdown border border-dropdown-line rounded-popover shadow-2xl p-3 min-w-64 max-h-96 overflow-y-auto"
         >
           <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 px-1">Filtros avanzados</p>
           <TableFilter v-model="activeFilters" :columns="filtersConfig" />
@@ -508,7 +508,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
         <div
           v-if="showColumnPanel"
           ref="columnPanelRef"
-          class="fixed z-50 bg-dropdown border border-dropdown-line rounded-xl shadow-2xl p-3 min-w-56 max-h-80 overflow-y-auto"
+          class="fixed z-50 bg-dropdown border border-dropdown-line rounded-popover shadow-2xl p-3 min-w-56 max-h-80 overflow-y-auto"
           :style="columnPanelStyle"
         >
           <p class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 px-1">Columnas visibles</p>
@@ -520,7 +520,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
             @dragover="(e) => onDragOver(e, col.key)"
             @dragleave="onDragLeave"
             @drop="onDrop(col.key)"
-            class="flex items-center gap-2 py-1.5 px-2 rounded-lg select-none transition-colors"
+            class="flex items-center gap-2 py-1.5 px-2 rounded-control select-none transition-colors"
             :class="dragOverKey === col.key ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-muted-hover cursor-grab'"
           >
             <IconGripVertical class="size-4 text-muted-foreground-2 shrink-0" />

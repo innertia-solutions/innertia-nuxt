@@ -41,7 +41,7 @@ const activeCount = computed(() =>
           :value="localFilters[col.key] ?? ''"
           @input="updateFilter(col.key, $event.target.value)"
           :placeholder="`Filtrar ${col.label.toLowerCase()}...`"
-          class="w-full rounded-lg border border-card-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          class="innertia-field innertia-field-sm"
         />
       </div>
 
@@ -63,14 +63,14 @@ const activeCount = computed(() =>
             type="date"
             :value="localFilters[col.key]?.from ?? ''"
             @change="updateFilter(col.key, { ...localFilters[col.key], from: $event.target.value || null })"
-            class="flex-1 rounded-lg border border-card-line bg-card text-foreground py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            class="flex-1 innertia-field innertia-field-sm"
           />
           <span class="text-slate-400 text-xs shrink-0">—</span>
           <input
             type="date"
             :value="localFilters[col.key]?.to ?? ''"
             @change="updateFilter(col.key, { ...localFilters[col.key], to: $event.target.value || null })"
-            class="flex-1 rounded-lg border border-card-line bg-card text-foreground py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            class="flex-1 innertia-field innertia-field-sm"
           />
         </div>
       </div>
@@ -82,7 +82,7 @@ const activeCount = computed(() =>
         v-if="activeCount > 0"
         type="button"
         @click="clearAll"
-        class="w-full py-1.5 px-3 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+        class="w-full py-1.5 px-3 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-control transition-colors flex items-center justify-center gap-1.5"
       >
         <svg class="size-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         Limpiar filtros

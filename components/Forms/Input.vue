@@ -10,6 +10,7 @@ const props = defineProps<{
   label?: string
   hint?: string
   iconLeft?: object | Function | null
+  iconRight?: object | Function | null
   autocomplete?: string
   size?: 'sm' | 'md'
 }>()
@@ -24,7 +25,7 @@ const inputType = computed(() => {
 })
 
 const baseClasses = computed(() =>
-  `${props.size === 'sm' ? 'py-1.5' : 'py-2'} px-3 block w-full rounded-lg text-sm text-slate-800 border border-card-line focus:ring-0 focus:border-gray-400 focus:outline-none disabled:opacity-50 dark:bg-transparent dark:text-muted-foreground-1 transition-colors placeholder:text-muted-foreground dark:placeholder:text-muted-foreground`
+  `innertia-field${props.size === 'sm' ? ' innertia-field-sm' : ''}`
 )
 </script>
 
@@ -49,10 +50,15 @@ const baseClasses = computed(() =>
         :class="[
           baseClasses,
           iconLeft ? 'ps-9' : '',
-          type === 'password' ? 'pe-10' : '',
+          (iconRight || type === 'password') ? 'pe-10' : '',
           error ? '!border-red-400 dark:!border-red-500' : '',
         ]"
       />
+
+      <!-- Ícono derecho (no se renderiza si type=password — ahí va el toggle) -->
+      <div v-if="iconRight && type !== 'password'" class="absolute inset-y-0 end-0 flex items-center pe-3 pointer-events-none text-muted-foreground">
+        <component :is="iconRight" class="size-4" />
+      </div>
 
       <!-- Toggle contraseña -->
       <button

@@ -16,24 +16,43 @@ const emit = defineEmits<{
 
 const selectRef = ref<HTMLSelectElement | null>(null)
 
-const reinitHsSelect = async () => {
+/**
+ * Init Preline HSSelect una sola vez después del mount.
+ * No destruimos ni re-inicializamos en cambios de options — para forzar
+ * un re-mount limpio, el consumer puede cambiar el `:key` del componente.
+ *
+ * Si Preline aún no está disponible (plugin carga async), esperamos.
+ */
+const initHsSelect = async () => {
   await nextTick()
   const el = selectRef.value
   if (!el) return
 
-  const instance = (window as any).HSSelect?.getInstance?.(el)
-  if (instance?.destroy) instance.destroy()
+  const tryInit = (attempts = 0) => {
+    const HSSelect = (window as any).HSSelect
+    if (!HSSelect) {
+      if (attempts < 20) {
+        // Re-intentar hasta 20 frames (~330ms) esperando que cargue el plugin
+        requestAnimationFrame(() => tryInit(attempts + 1))
+      }
+      return
+    }
 
-  new (window as any).HSSelect(el)
+    // Evitar doble init si ya hay una instancia registrada
+    if (HSSelect.getInstance?.(el)) return
+
+    try {
+      new HSSelect(el)
+    } catch (e) {
+      console.warn('[FormsSelect] HSSelect init falló:', e)
+    }
+  }
+
+  tryInit()
 }
 
-// Re-initialize when options change (async load)
-watch(() => props.options, async () => {
-  await reinitHsSelect()
-}, { deep: true })
-
 onMounted(() => {
-  reinitHsSelect()
+  initHsSelect()
 })
 
 const handleChange = (e: Event) => {
@@ -53,7 +72,7 @@ const handleChange = (e: Event) => {
     <!-- Select (HSSelect) -->
     <ClientOnly>
       <template #fallback>
-        <div class="h-[38px] bg-surface animate-pulse rounded-lg" />
+        <div class="innertia-field bg-surface animate-pulse" />
       </template>
 
       <div :class="['relative', error ? 'select-error' : '']">
@@ -66,9 +85,9 @@ const handleChange = (e: Event) => {
           data-hs-select='{
             "placeholder": "Seleccionar...",
             "toggleTag": "<button type=\"button\" aria-expanded=\"false\"></button>",
-            "toggleClasses": "hs-select-disabled:pointer-events-none hs-select-disabled:opacity-50 relative py-2 ps-4 pe-9 flex gap-x-2 text-nowrap w-full cursor-pointer bg-card border border-card-line rounded-lg text-start text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:text-muted-foreground-1 dark:focus:outline-hidden dark:focus:ring-1 dark:focus:ring-blue-600",
-            "dropdownClasses": "mt-1 z-50 w-full max-h-72 p-1 space-y-0.5 bg-dropdown border border-dropdown-line rounded-lg overflow-hidden overflow-y-auto shadow-lg",
-            "optionClasses": "py-2 px-4 w-full text-sm text-foreground cursor-pointer hover:bg-muted-hover rounded-lg focus:outline-hidden focus:bg-muted-hover dark:bg-card",
+            "toggleClasses": "innertia-field hs-select-disabled:pointer-events-none hs-select-disabled:opacity-50 aria-expanded:!rounded-b-none aria-expanded:!border-b-transparent relative pe-9 flex gap-x-2 items-center text-nowrap cursor-pointer text-start",
+            "dropdownClasses": "-mt-px z-50 w-full max-h-72 py-1 bg-[color:var(--field-dropdown-bg)] border border-[color:var(--field-border)] rounded-b-control overflow-hidden overflow-y-auto shadow-lg",
+            "optionClasses": "py-2 px-3 w-full text-sm text-foreground cursor-pointer bg-transparent hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover",
             "optionTemplate": "<div class=\"flex justify-between items-center w-full\"><span data-title></span><span class=\"hidden hs-selected:block\"><svg class=\"shrink-0 size-3.5 text-blue-600 dark:text-blue-500\" xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg></span></div>"
           }'
         >
@@ -84,17 +103,34 @@ const handleChange = (e: Event) => {
       </div>
     </ClientOnly>
 
-    <!-- Error -->
-    <p v-if="error" class="text-xs text-red-500 dark:text-red-400">{{ error }}</p>
+    <!-- Error message -->
+    <p v-if="error" class="text-xs text-red-500">{{ error }}</p>
 
     <!-- Hint -->
     <p v-else-if="hint" class="text-xs text-muted-foreground">{{ hint }}</p>
   </div>
 </template>
 
-<style scoped>
-/* Apply error border to the HSSelect toggle button when in error state */
-.select-error :deep(button[aria-expanded]) {
-  border-color: rgb(248 113 113) !important; /* red-400 */
+<style>
+/*
+ * Preline HSSelect: cuando el dropdown está abierto, el trigger pierde
+ * sus esquinas inferiores y el borde inferior se vuelve invisible para
+ * fusionarse visualmente con el dropdown panel.
+ *
+ * Estilos globales (sin scoped) porque el HSSelect inyecta DOM fuera
+ * del componente Vue (button generado, no del template).
+ */
+.hs-select [aria-expanded="true"].innertia-field {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-bottom-color: transparent !important;
+}
+
+/* Pegar el dropdown al trigger eliminando cualquier offset/margen que
+ * Preline pueda inyectar. Target amplio: cualquier div con la clase
+ * `rounded-b-control` dentro del wrapper `.hs-select`. */
+.hs-select div[class*="rounded-b-control"] {
+  top: 100% !important;
+  margin-top: -1px !important;
 }
 </style>

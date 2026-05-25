@@ -180,76 +180,101 @@ const clear = () => {
 <template>
   <div class="relative w-full">
     <div class="relative group">
-      <div class="absolute inset-y-0 start-0 flex items-center pointer-events-none z-20 ps-3.5">
-        <IconCalendar class="size-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-      </div>
-
       <input
         ref="inputEl"
         type="text"
         :value="internalValue"
         :disabled="disabled"
         :placeholder="placeholder"
-        class="w-full py-2 ps-10 pe-10 border border-gray-300 rounded-lg text-sm dark:bg-card dark:border-card-line dark:text-white disabled:opacity-50 disabled:pointer-events-none cursor-pointer focus:border-blue-500 focus:ring-blue-500/20 outline-none transition-all block"
+        class="innertia-field pe-10 cursor-pointer"
         readonly
       />
 
-      <!-- Clear button -->
+      <!-- Clear button (cuando hay valor) o ícono calendario (cuando está vacío) — ambos a la derecha -->
       <button
         v-if="clearable && internalValue && !disabled"
         @click.stop="clear"
         type="button"
-        class="absolute inset-y-0 end-0 flex items-center z-20 pe-3 text-gray-400 hover:text-red-500 transition-colors focus:outline-none"
+        class="absolute inset-y-0 end-0 flex items-center z-20 pe-3 text-muted-foreground hover:text-destructive transition-colors focus:outline-none"
       >
         <IconX class="size-4" />
       </button>
+      <div
+        v-else
+        class="absolute inset-y-0 end-0 flex items-center pointer-events-none z-20 pe-3"
+      >
+        <IconCalendar class="size-4 text-muted-foreground-2 group-focus-within:text-primary transition-colors" />
+      </div>
     </div>
   </div>
 </template>
 
 <style>
 /*
-  Vanilla Calendar v3 compiles Tailwind classes directly into its themes.
-  We override the selected date and hover backgrounds for Light and Dark modes.
-*/
+ * Vanilla Calendar v3 compila Tailwind directo en sus themes. Overridemos
+ * solo los acentos del brand color para que sigan los tokens del DS.
+ *
+ * Light y dark usan las mismas variables — `--color-primary` ya cambia
+ * automáticamente entre claro/oscuro a través de la cascada del tema.
+ *
+ * Las clases de selected / today / hover aplican tanto en
+ * `[data-vc-theme=light]` como `[data-vc-theme=dark]`.
+ */
 
-/* LIGHT MODE OVERRIDES */
-[data-vc-theme=light] .vc-months__month[data-vc-months-month-selected],
-[data-vc-theme=light] .vc-years__year[data-vc-years-year-selected],
-[data-vc-theme=light] .vc-date[data-vc-date-selected=middle][data-vc-date-selected] .vc-date__btn,
-[data-vc-theme=light] .vc-date[data-vc-date-selected] .vc-date__btn {
-  background-color: #2563eb !important; /* blue-600 */
-  color: #ffffff !important;
+/* Día seleccionado / mes seleccionado / año seleccionado */
+.vc-months__month[data-vc-months-month-selected],
+.vc-years__year[data-vc-years-year-selected],
+.vc-date[data-vc-date-selected=middle][data-vc-date-selected] .vc-date__btn,
+.vc-date[data-vc-date-selected] .vc-date__btn {
+  background-color: var(--color-primary) !important;
+  color: var(--color-primary-foreground) !important;
+  border-radius: var(--radius-control) !important;
 }
 
-[data-vc-theme=light] .vc-months__month[data-vc-months-month-selected]:hover,
-[data-vc-theme=light] .vc-years__year[data-vc-years-year-selected]:hover,
-[data-vc-theme=light] .vc-date[data-vc-date-selected=middle][data-vc-date-selected] .vc-date__btn:hover,
-[data-vc-theme=light] .vc-date[data-vc-date-selected] .vc-date__btn:hover {
-  background-color: #1d4ed8 !important; /* blue-700 */
+.vc-months__month[data-vc-months-month-selected]:hover,
+.vc-years__year[data-vc-years-year-selected]:hover,
+.vc-date[data-vc-date-selected=middle][data-vc-date-selected] .vc-date__btn:hover,
+.vc-date[data-vc-date-selected] .vc-date__btn:hover {
+  background-color: var(--color-primary-hover) !important;
 }
 
-[data-vc-theme=light] .vc-date[data-vc-date-today] .vc-date__btn {
-  color: #2563eb !important;
+/* Hoy (sin seleccionar): color del texto en brand */
+.vc-date[data-vc-date-today] .vc-date__btn {
+  color: var(--color-primary) !important;
+  font-weight: 600;
 }
 
-/* DARK MODE OVERRIDES */
-[data-vc-theme=dark] .vc-months__month[data-vc-months-month-selected],
-[data-vc-theme=dark] .vc-years__year[data-vc-years-year-selected],
-[data-vc-theme=dark] .vc-date[data-vc-date-selected=middle][data-vc-date-selected] .vc-date__btn,
-[data-vc-theme=dark] .vc-date[data-vc-date-selected] .vc-date__btn {
-  background-color: #3b82f6 !important; /* blue-500 */
-  color: #ffffff !important;
+/* Hover de cualquier día (no seleccionado) */
+.vc-date:not([data-vc-date-selected]) .vc-date__btn:hover,
+.vc-months__month:not([data-vc-months-month-selected]):hover,
+.vc-years__year:not([data-vc-years-year-selected]):hover {
+  background-color: var(--color-muted-hover) !important;
+  border-radius: var(--radius-control) !important;
 }
 
-[data-vc-theme=dark] .vc-months__month[data-vc-months-month-selected]:hover,
-[data-vc-theme=dark] .vc-years__year[data-vc-years-year-selected]:hover,
-[data-vc-theme=dark] .vc-date[data-vc-date-selected=middle][data-vc-date-selected] .vc-date__btn:hover,
-[data-vc-theme=dark] .vc-date[data-vc-date-selected] .vc-date__btn:hover {
-  background-color: #2563eb !important; /* blue-600 */
+/* Días del mes anterior / siguiente — más opacos */
+.vc-date[data-vc-date-month=prev] .vc-date__btn,
+.vc-date[data-vc-date-month=next] .vc-date__btn {
+  color: var(--color-muted-foreground-2) !important;
 }
 
-[data-vc-theme=dark] .vc-date[data-vc-date-today] .vc-date__btn {
-  color: #3b82f6 !important;
+/* Botones de navegación (mes anterior / siguiente) */
+.vc-arrow {
+  color: var(--color-foreground) !important;
+}
+.vc-arrow:hover {
+  background-color: var(--color-muted-hover) !important;
+  border-radius: var(--radius-control) !important;
+}
+
+/* Header del mes/año en el centro */
+.vc-month,
+.vc-year {
+  color: var(--color-foreground) !important;
+}
+
+/* Nombres de los días (Lun, Mar, …) */
+.vc-week__day {
+  color: var(--color-muted-foreground) !important;
 }
 </style>

@@ -20,6 +20,8 @@ const props = defineProps({
   multiple: { type: Boolean, default: false },
   searchable: { type: Boolean, default: true },
   disabled: { type: Boolean, default: false },
+  loading: { type: Boolean, default: false },
+  name: { type: String, default: "" },
   clearable: { type: Boolean, default: false },
   searchPlaceholder: { type: String, default: "Buscar..." },
   minSearchLength: { type: Number, default: 0 },
@@ -336,23 +338,22 @@ const validationClasses = computed(() => {
 
 // Combined select classes
 const selectClasses = computed(() => {
-  let base, focus, disabled;
+  // Apariencia unificada con el resto de los fields del DS.
+  // En modo tags-multiple desactivamos la altura fija porque el control crece
+  // según la cantidad de chips seleccionados.
+  const base = props.multiple && props.tagsMode
+    ? "innertia-field relative cursor-pointer text-start !ps-3.5 !pe-9 flex items-center flex-wrap gap-2 text-nowrap !h-auto min-h-[var(--field-height)] py-2.5"
+    : "innertia-field relative cursor-pointer text-start pe-9 flex items-center gap-x-2";
 
-  base =
-    "relative w-full rounded-lg border bg-card transition-colors cursor-pointer text-foreground";
+  // Cuando el dropdown está abierto, el trigger se "funde" visualmente con
+  // el panel: deja de redondear sus esquinas inferiores y queda como una sola pieza.
+  const openStyles = isOpen.value
+    ? "!rounded-b-none border-b-transparent"
+    : "";
 
-  if (props.multiple && props.tagsMode) {
-    base += " px-3 pe-8 min-h-[2.375rem] flex items-center flex-wrap text-nowrap";
-    focus = "focus:outline-none focus:border-gray-400";
-  } else {
-    focus = "focus:outline-none focus:ring-0 focus:border-gray-400";
-  }
+  const disabled = props.disabled || props.loading ? "opacity-50 cursor-not-allowed" : "";
 
-  disabled = props.disabled || props.loading ? "opacity-50 cursor-not-allowed" : "";
-
-  const sizeClass = props.multiple && props.tagsMode ? "" : sizeClasses.value;
-
-  return `${base} ${sizeClass} ${validationClasses.value} ${focus} ${disabled} ${props.class}`;
+  return `${base} ${openStyles} ${validationClasses.value} ${disabled} ${props.class ?? ""}`;
 });
 
 // Filtered options — backend does the filtering, serverOptions IS the filteredOptions
@@ -403,8 +404,9 @@ const selectOption = (option) => {
   if (option.disabled) return;
 
   if (props.multiple) {
+    const target = getOptionValue(option);
     const index = selectedOptions.value.findIndex(
-      (opt) => opt.id === option.id
+      (opt) => getOptionValue(opt) === target
     );
     if (index > -1) {
       selectedOptions.value.splice(index, 1);
@@ -428,7 +430,8 @@ const selectOption = (option) => {
 
 const removeTag = (option) => {
   if (props.disabled) return;
-  const index = selectedOptions.value.findIndex((opt) => opt.id === option.id);
+  const target = getOptionValue(option);
+  const index = selectedOptions.value.findIndex((opt) => getOptionValue(opt) === target);
   if (index > -1) {
     selectedOptions.value.splice(index, 1);
     localValue.value = selectedOptions.value.map((opt) => getOptionValue(opt));
@@ -443,7 +446,8 @@ const clearSelection = () => {
 };
 
 const isOptionSelected = (option) => {
-  return selectedOptions.value.some((opt) => opt.id === option.id);
+  const target = getOptionValue(option);
+  return selectedOptions.value.some((opt) => getOptionValue(opt) === target);
 };
 
 // Keyboard navigation
@@ -524,27 +528,28 @@ onMounted(() => {
       <!-- Selected values display -->
       <div v-else class="flex items-center justify-between w-full">
         <!-- Tags mode for multiple selection -->
-        <div v-if="multiple && tagsMode && selectedOptions.length" class="flex flex-wrap items-center gap-1 flex-1">
+        <div v-if="multiple && tagsMode && selectedOptions.length" class="flex flex-wrap items-center gap-1.5 flex-1">
           <div v-for="option in selectedOptions" :key="option.id"
-            class="flex flex-nowrap items-center relative z-10 bg-card border border-card-line rounded-full p-1 m-1">
+            class="inline-flex items-center gap-1.5 bg-muted border border-[color:var(--field-border)] rounded-badge ps-2.5 pe-1 py-1 text-xs leading-none">
             <!-- Avatar/Icon -->
-            <div v-if="option.avatar || option.icon" class="size-6 me-1">
+            <div v-if="option.avatar || option.icon" class="size-4">
               <img v-if="option.avatar" :src="option.avatar" :alt="getOptionLabel(option)"
-                class="inline-block rounded-full size-6" />
-              <div v-else-if="option.icon" v-html="option.icon" class="size-6"></div>
+                class="inline-block rounded-avatar size-4" />
+              <div v-else-if="option.icon" v-html="option.icon" class="size-4"></div>
             </div>
 
             <!-- Label -->
-            <div class="whitespace-nowrap text-foreground text-sm pl-1.5">
+            <span class="whitespace-nowrap text-foreground">
               <slot name="tag" :option="option">
                 {{ getOptionLabel(option) }}
               </slot>
-            </div>
+            </span>
 
             <!-- Remove button -->
             <button type="button" v-if="!disabled" @click.stop="removeTag(option)"
-              class="inline-flex shrink-0 justify-center items-center size-5 ms-2 rounded-full text-foreground bg-surface-1 hover:bg-surface-1 focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm cursor-pointer">
-              <svg class="shrink-0 size-3" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+              class="inline-flex shrink-0 justify-center items-center size-4 rounded-badge text-muted-foreground hover:text-foreground focus:outline-none focus-visible:outline-none cursor-pointer"
+              tabindex="-1">
+              <svg class="shrink-0 size-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 6 6 18" />
                 <path d="m6 6 12 12" />
@@ -592,12 +597,12 @@ onMounted(() => {
       enter-to-class="transform opacity-100 scale-100" leave-active-class="transition ease-in duration-75"
       leave-from-class="transform opacity-100 scale-100" leave-to-class="transform opacity-0 scale-95">
       <div v-show="isOpen" ref="optionsListRef" @scroll="handleScroll"
-        class="absolute z-50 w-full mt-1 bg-dropdown border border-dropdown-line rounded-xl shadow-xl max-h-60 overflow-auto">
+        class="absolute z-50 w-full -mt-px bg-[color:var(--field-dropdown-bg)] border border-[color:var(--field-border)] rounded-b-control shadow-lg max-h-60 overflow-auto">
         <!-- Search input -->
         <div v-if="searchable" class="p-2 border-b border-card-line relative">
           <input type="text" :value="searchQuery" :placeholder="searchPlaceholder" @input="handleSearchInput"
             @keydown.enter.prevent
-            class="w-full px-3 py-2.5 pr-8 border border-card-line rounded-lg focus:outline-none focus:ring-0 focus:border-gray-400 dark:bg-surface dark:text-white text-sm transition-colors" />
+            class="innertia-field innertia-field-sm pe-8" />
           <button type="button" v-if="searchQuery" @click.prevent="clearSearch"
             class="absolute top-1/2 right-4 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -635,7 +640,7 @@ onMounted(() => {
             <!-- Multiple selection checkbox -->
             <div v-if="multiple" class="mr-2">
               <div :class="[
-                'w-4 h-4 rounded-lg border-2 flex items-center justify-center',
+                'w-4 h-4 rounded-control border-2 flex items-center justify-center',
                 isOptionSelected(option)
                   ? 'bg-slate-600 border-slate-600 text-white'
                   : 'border-card-line',
@@ -652,7 +657,7 @@ onMounted(() => {
             <div class="flex items-center flex-1">
               <!-- Avatar/Icon -->
               <div v-if="option.avatar || option.icon" class="mr-3">
-                <img v-if="option.avatar" :src="option.avatar" :alt="option.label" class="w-6 h-6 rounded-full" />
+                <img v-if="option.avatar" :src="option.avatar" :alt="option.label" class="w-6 h-6 rounded-avatar" />
                 <component v-else-if="option.icon" :is="option.icon" class="w-5 h-5 text-gray-500" />
               </div>
 
@@ -702,7 +707,7 @@ onMounted(() => {
         <!-- No data message -->
         <div v-else-if="!serverOptions.length && !isFetching" class="px-3 py-8 text-center">
           <div class="flex flex-col items-center gap-y-2">
-            <div class="size-10 rounded-full bg-muted flex items-center justify-center">
+            <div class="size-10 rounded-avatar bg-muted flex items-center justify-center">
               <svg class="size-5 text-muted-foreground-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                 stroke-width="1.5" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round"
