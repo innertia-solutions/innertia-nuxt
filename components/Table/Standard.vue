@@ -1,5 +1,5 @@
 <script setup>
-import { IconSearch, IconLayoutColumns, IconGripVertical, IconX, IconPlus, IconChevronLeft, IconCheck, IconChevronDown } from '@tabler/icons-vue'
+import { IconSearch, IconLayoutColumns, IconGripVertical, IconX, IconPlus, IconChevronLeft, IconCheck, IconChevronDown, IconTable, IconLayoutGrid, IconDatabase, IconLayoutSidebarRight } from '@tabler/icons-vue'
 import Table from './index.vue'
 
 const props = defineProps({
@@ -16,6 +16,12 @@ const props = defineProps({
   showSearch:              { type: Boolean, default: true },
   showFilters:             { type: Boolean, default: true },
   showExport:              { type: Boolean, default: true },
+  showColumns:             { type: Boolean, default: true },
+  /** Mostrar selector "Filas por página" en el footer. Default false. */
+  showPerPage:             { type: Boolean, default: false },
+
+  // Tamaño visible (wrap + overflow auto). 'sm' | 'md' (default) | 'lg' | 'fit'.
+  size:                    { type: String, default: 'md' },
   filters:                 { type: Array,   default: () => [] },
   splitRatio:              { type: Number,           default: 60 },
   autoClosePreview:        { type: Boolean,          default: true },
@@ -23,13 +29,103 @@ const props = defineProps({
   previewDeletable:        { type: Boolean,          default: false },
   defaultPinnedColumns:    { type: Object,  default: null }, // { left?: string[], right?: string[] }
   persistPreferences:      { type: Boolean, default: true }, // persist column prefs in backend
+
+  // bordered=false → quita border + rounded-card del wrapper exterior
+  bordered:                { type: Boolean, default: true },
+
+  // 'bottom' (default) | 'top' | 'none'
+  //   'bottom' → footer + pagination debajo
+  //   'top'    → mismo footer + pagination, arriba (vía CSS order)
+  //   'none'   → sin footer/pagination; reload + instant compactos junto a columns
+  infoPosition:            { type: String, default: 'bottom' },
+
+  // View switcher
+  showViewSwitcher:        { type: Boolean, default: false },
+  defaultViewType:         { type: String,  default: 'table' },
+  /** Page size when in cards view (default 12 for clean grid layouts). */
+  cardsPageSize:           { type: Number,  default: 12 },
+  /** Mutation function for database inline editing: async (row, colKey, value) => void */
+  updateMutation:          { type: Function, default: null },
 })
 
 const resolvedEndpoint = computed(() => props.table?.endpoint ?? props.endpoint)
 const resolvedName     = computed(() => props.table?.name     ?? props.name)
 
+// ─── View switcher state ──────────────────────────────────────────────────────
+const STORAGE_KEY_VIEW = computed(() => `table-view-${resolvedName.value || 'default'}`)
+const viewType = ref(props.defaultViewType)
+
+const viewModes = [
+  { id: 'table',    icon: IconTable,             label: 'Tabla' },
+  { id: 'cards',    icon: IconLayoutGrid,         label: 'Tarjetas' },
+  { id: 'database', icon: IconDatabase,           label: 'Base de datos' },
+  { id: 'divider',  icon: IconLayoutSidebarRight, label: 'Vista dividida' },
+]
+
+onMounted(() => {
+  if (resolvedName.value && props.showViewSwitcher) {
+    const stored = localStorage.getItem(STORAGE_KEY_VIEW.value)
+    if (stored && ['table', 'cards', 'database', 'divider'].includes(stored)) {
+      viewType.value = stored
+    }
+  }
+})
+
+watch(viewType, (newView, oldView) => {
+  if (resolvedName.value && props.showViewSwitcher) {
+    localStorage.setItem(STORAGE_KEY_VIEW.value, newView)
+  }
+  // Adjust page size when entering/leaving cards view
+  if (newView === 'cards') {
+    nextTick(() => tableRef.value?.setPageSize(props.cardsPageSize))
+  } else if (oldView === 'cards') {
+    nextTick(() => tableRef.value?.setPageSize(10))
+  }
+})
+
+// ─── Resizable divider ────────────────────────────────────────────────────────
+const localSplitRatio = ref(props.splitRatio)
+let _dividerAnimFrame = null
+
+const startDividerDrag = (e) => {
+  e.preventDefault()
+  const startX = e.clientX
+  const startRatio = localSplitRatio.value
+  const containerWidth = containerRef.value?.getBoundingClientRect().width ?? window.innerWidth
+
+  const onMove = (ev) => {
+    if (_dividerAnimFrame) cancelAnimationFrame(_dividerAnimFrame)
+    _dividerAnimFrame = requestAnimationFrame(() => {
+      const dx = ev.clientX - startX
+      localSplitRatio.value = Math.min(80, Math.max(20, startRatio + (dx / containerWidth) * 100))
+    })
+  }
+
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }
+
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
+
 // ─── Table preferences (column pinning, visibility, order) ───────────────────
 const tablePrefName = computed(() => resolvedName.value || 'default')
+
+const sizeStyle = computed(() => {
+  switch (props.size) {
+    case 'sm':  return { minHeight: '18rem', maxHeight: '24rem', overflow: 'auto' }
+    case 'lg':  return { minHeight: '45rem', maxHeight: '75vh', overflow: 'auto' }
+    case 'fit': return {}
+    case 'md':
+    default:    return {}
+  }
+})
 const { preferences: tablePrefs, load: loadPrefs, save: savePrefs } = useTablePreferences(tablePrefName.value)
 
 // Resolved initial pinned columns: merge defaultPinnedColumns with saved preferences
@@ -562,7 +658,36 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
 
       <!-- Secondary actions: pushed to the right, icon-only style -->
       <div class="ml-auto flex items-center gap-1">
+        <!-- Reload + Instant compactos cuando infoPosition === 'none' -->
+        <InfoToolbar
+          v-if="infoPosition === 'none'"
+          :show-reload="showReloadButton"
+          :is-fetching="tableRef?.isFetching ?? false"
+          :show-instant="tableRef?.isDataFromCache ?? false"
+          @reload="() => tableRef?.reload?.()"
+        />
+
+        <!-- View switcher -->
+        <div v-if="showViewSwitcher" class="flex items-center gap-0.5 p-0.5 bg-surface rounded-control border border-card-line">
+          <button
+            v-for="mode in viewModes"
+            :key="mode.id"
+            type="button"
+            @click="viewType = mode.id"
+            :title="mode.label"
+            :class="[
+              'p-1 inline-flex items-center justify-center rounded transition-colors',
+              viewType === mode.id
+                ? 'bg-card shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            ]"
+          >
+            <component :is="mode.icon" :size="14" :stroke="1.75" />
+          </button>
+        </div>
+
         <button
+          v-if="showColumns"
           ref="columnButtonRef"
           type="button"
           @click="showColumnPanel = !showColumnPanel"
@@ -608,35 +733,83 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
       </div>
     </div>
 
-    <!-- Tabla -->
-    <div class="overflow-hidden border border-card-line rounded-card">
-      <Table
-        ref="tableRef"
-        :endpoint="resolvedEndpoint"
-        :columns="columns"
-        :name="resolvedName"
-        :params="mergedParams"
-        :search="search"
-        :checkable="checkable"
-        :cached="cached"
-        :show-reload-button="showReloadButton"
-        :click-row-to-open="clickRowToOpen"
-        :preview-row-id="previewRow?.id ?? null"
-        :preview-mode="!!previewEnabled"
-        :pinned-columns="resolvedPinnedColumns"
-        @row-click="handleRowClick"
-        @loaded="handleLoaded"
-        @page-change="closePreview"
-        @per-page-change="closePreview"
+    <!-- Tabla — normal or split layout -->
+    <div
+      :class="[
+        bordered ? 'overflow-hidden border border-card-line rounded-card' : '',
+        viewType === 'divider' ? 'flex' : '',
+      ]"
+      :style="viewType === 'divider' ? { ...sizeStyle, minHeight: sizeStyle.minHeight ?? '28rem' } : sizeStyle"
+    >
+      <!-- Table panel -->
+      <div
+        :class="viewType === 'divider' ? 'overflow-hidden min-w-0' : ''"
+        :style="viewType === 'divider' ? { width: localSplitRatio + '%', minWidth: '280px' } : {}"
       >
-        <template v-for="(_, name) in forwardedSlots" #[name]="slotProps">
-          <slot :name="name" v-bind="slotProps ?? {}" />
+        <Table
+          ref="tableRef"
+          :endpoint="resolvedEndpoint"
+          :columns="columns"
+          :name="resolvedName"
+          :params="mergedParams"
+          :search="search"
+          :checkable="checkable"
+          :cached="cached"
+          :show-reload-button="showReloadButton"
+          :info-position="infoPosition"
+          :show-per-page="showPerPage"
+          :click-row-to-open="clickRowToOpen"
+          :preview-row-id="previewRow?.id ?? null"
+          :preview-mode="!!previewEnabled"
+          :pinned-columns="resolvedPinnedColumns"
+          :view-mode="viewType === 'divider' ? 'table' : viewType"
+          :update-mutation="updateMutation"
+          :bordered="bordered"
+          @row-click="handleRowClick"
+          @loaded="handleLoaded"
+          @page-change="closePreview"
+          @per-page-change="closePreview"
+        >
+          <template v-for="(_, name) in forwardedSlots" #[name]="slotProps">
+            <slot :name="name" v-bind="slotProps ?? {}" />
+          </template>
+        </Table>
+      </div>
+
+      <!-- Resizable drag handle (divider mode only) -->
+      <div
+        v-if="viewType === 'divider'"
+        class="w-1 shrink-0 bg-card-line hover:bg-primary/40 active:bg-primary/60 cursor-col-resize transition-colors relative group select-none"
+        @mousedown="startDividerDrag"
+      >
+        <!-- Visual pill indicator -->
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-card-line group-hover:bg-primary/50 transition-colors" />
+      </div>
+
+      <!-- Preview panel (divider mode only) -->
+      <div v-if="viewType === 'divider'" class="flex-1 min-w-0 overflow-auto">
+        <template v-if="previewRow">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-card-line">
+            <slot name="preview-header" :row="previewRow" :close="closePreview" />
+            <button
+              @click="closePreview"
+              class="p-1 rounded-control text-muted-foreground hover:text-foreground hover:bg-muted-hover ml-auto"
+            >
+              <IconX :size="16" />
+            </button>
+          </div>
+          <slot name="preview" :row="previewRow" :close="closePreview" />
         </template>
-      </Table>
+        <div v-else class="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16">
+          <IconLayoutSidebarRight :size="32" :stroke="1.25" class="opacity-30" />
+          <p class="text-sm">Seleccioná un elemento para ver el detalle</p>
+        </div>
+      </div>
     </div>
 
-    <!-- Preview compartido (panel overlay + chip flotante + history tab) -->
+    <!-- Preview compartido (panel overlay + chip flotante + history tab) — only when NOT in divider mode -->
     <DataPreview
+      v-if="viewType !== 'divider'"
       ref="dataPreviewRef"
       v-model:row="previewRow"
       :enabled="previewEnabled"

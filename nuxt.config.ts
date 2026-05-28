@@ -13,7 +13,7 @@ export default defineNuxtConfig({
     { path: './components', pathPrefix: true, prefix: '' },
   ],
   imports: {
-    dirs: ['stores', 'composables'],
+    dirs: ['stores', 'composables', 'composables/useWorkflow'],
     presets: [
       {
         from: '@tanstack/vue-query',

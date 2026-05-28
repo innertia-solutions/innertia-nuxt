@@ -14,7 +14,10 @@
  * y solo redefinen estos tokens semánticos. NO redefinen primitivos.
  * ============================================================================ */
 
-@theme inline {
+/* @theme (sin `inline`) → Tailwind genera `rounded-card`, `rounded-control`, etc.
+ * referenciando `var(--radius-card)` etc. en lugar de inline-ar el valor en
+ * build-time. Esto permite OVERRIDES en runtime (templates, playground toggles). */
+@theme {
   /* ─── Radius ───────────────────────────────────────────────────────────
    * Categorización por *función*, no por tamaño. */
   --radius-control:  var(--radius-md);    /* botones, inputs, selects */
@@ -25,16 +28,13 @@
   --radius-badge:    var(--radius-full);  /* chips, tags, status pills */
   --radius-avatar:   var(--radius-full);  /* avatares circulares */
 
-  /* ─── Fields (controles de formulario) ─────────────────────────────────
-   * TODOS los inputs/selects/datepicker comparten estos tokens. Un template
-   * puede redefinirlos una vez y todos los controles del producto cambian
-   * coherentemente. */
-  --field-height:           2.5rem;                       /* 40px */
-  --field-height-sm:        2rem;                         /* 32px */
-  --field-padding-x:        0.875rem;                     /* 14px */
+  /* ─── Fields (controles de formulario) ───────────────────────────────── */
+  --field-height:           2.5rem;
+  --field-height-sm:        2rem;
+  --field-padding-x:        0.875rem;
   --field-border-width:     1px;
-  --field-font-size:        0.875rem;                     /* text-sm */
-  --field-font-size-sm:     0.8125rem;                    /* text-[13px] */
+  --field-font-size:        0.875rem;
+  --field-font-size-sm:     0.8125rem;
   --field-bg:               var(--color-card);
   --field-dropdown-bg:      var(--field-bg);
   --field-border:           var(--color-card-line);

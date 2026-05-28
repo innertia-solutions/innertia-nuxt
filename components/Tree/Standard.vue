@@ -53,6 +53,20 @@ const props = defineProps({
   //   'list'  — compacto tipo file-tree explorer (sin tabla, sin bordes de fila)
   variant: { type: String, default: 'table' },
 
+  // bordered=false → quita border + rounded-card del wrapper exterior
+  bordered: { type: Boolean, default: true },
+
+  // 'bottom' (default) | 'top' | 'none' — dónde aparecen reload + total + instant
+  //   'none' = sin footer, reload + instant compactos al lado de columns/export
+  infoPosition: { type: String, default: 'bottom' },
+
+  // Tamaño visible del área scrollable.
+  //   'sm'  — compacta (min 18rem / max 24rem)
+  //   'md'  — default (min 30rem / max 36rem)
+  //   'lg'  — espaciosa (min 45rem / max 75vh)
+  //   'fit' — sin min/max, se adapta al contenedor padre
+  size: { type: String, default: 'md' },
+
   // ─── Preview overlay panel (mismo patrón que Table.Standard) ───────────
   // El panel se activa automáticamente si el consumer declara <slot name="preview">.
   // Click en una fila → set previewRow → overlay absoluto sobre la derecha de la tabla.
@@ -61,6 +75,16 @@ const props = defineProps({
   autoClosePreview:  { type: Boolean, default: true },
   /** Porcentaje inicial de la tabla (0-100). El resto lo ocupa el preview. */
   splitRatio:        { type: Number, default: 55 },
+})
+
+const sizeStyle = computed(() => {
+  switch (props.size) {
+    case 'sm':  return { minHeight: '18rem', maxHeight: '24rem' }
+    case 'lg':  return { minHeight: '45rem', maxHeight: '75vh' }
+    case 'fit': return {}
+    case 'md':
+    default:    return { minHeight: '30rem', maxHeight: '36rem' }
+  }
 })
 
 const emit = defineEmits([
@@ -567,6 +591,15 @@ defineExpose({
       <!-- Secondary actions -->
       <div class="ml-auto flex items-center gap-1">
 
+        <!-- Instant + Reload SIEMPRE primero cuando infoPosition === 'none' -->
+        <InfoToolbar
+          v-if="infoPosition === 'none'"
+          :show-reload="showReloadButton"
+          :is-fetching="isFetching"
+          :show-instant="isDataFromCache && cached"
+          @reload="fetchInitial"
+        />
+
         <!-- Columns dropdown -->
         <div v-if="showColumns" class="relative">
           <button
@@ -616,6 +649,7 @@ defineExpose({
             </div>
           </Transition>
         </div>
+
 
         <!-- Export dropdown -->
         <div v-if="showExport" class="relative">
@@ -714,9 +748,12 @@ defineExpose({
 
     <!-- ── Table wrapper (rounded + scroll) ───────────────────────────────── -->
     <div
-      class="border border-card-line rounded-card overflow-hidden flex flex-col w-full"
+      :class="[
+        'flex flex-col w-full',
+        bordered ? 'border border-card-line rounded-card overflow-hidden' : '',
+      ]"
     >
-      <div class="overflow-auto" style="min-height: 30rem; max-height: 36rem">
+      <div class="overflow-auto" :style="sizeStyle">
 
         <!-- ════════════ Variante 'table' ════════════ -->
         <table v-if="variant === 'table'" class="w-full divide-y divide-card-line" style="table-layout: auto">
@@ -843,8 +880,16 @@ defineExpose({
         </div>
       </div>
 
-      <!-- ── Footer bar (reload + total + cache badge) — DENTRO del wrapper ── -->
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-y-3 sm:gap-y-0 px-4 py-3 border-t border-card-line bg-card">
+      <!-- ── Footer bar (reload + total + cache badge) — top/bottom/none ── -->
+      <div
+        v-if="infoPosition !== 'none'"
+        :class="[
+          'flex flex-col sm:flex-row items-center justify-between gap-y-3 sm:gap-y-0 px-4 py-3',
+          infoPosition === 'top'
+            ? (bordered ? 'order-first border-b border-card-line bg-card' : 'order-first pb-4')
+            : (bordered ? 'border-t border-card-line bg-card' : 'pt-4'),
+        ]"
+      >
         <div class="flex items-center gap-x-4 flex-wrap gap-y-2">
           <!-- Reload button -->
           <div v-if="showReloadButton" class="flex items-center gap-x-2">

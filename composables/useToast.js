@@ -1,69 +1,42 @@
-// app/composables/useToast.js
+// composables/useToast.js
 import { useToastStore } from '../stores/toast'
 
+/**
+ * useToast() — API limpia para mostrar toasts.
+ *
+ * ```js
+ * const toast = useToast()
+ *
+ * toast.success('Guardado')
+ * toast.error('Algo falló', { title: 'Error', duration: 8000 })
+ * toast.warning('Atención')
+ * toast.info('Tip')
+ *
+ * toast.notify({ title: 'Nueva mención', message: 'Te etiquetaron', action: { label: 'Ver', onClick: () => {} } })
+ *
+ * const id = toast.process('Subiendo archivo…', { position: 'bottom-right' })
+ * toast.updateProgress(id, 40, '40%')
+ * toast.completeProcess(id, 'Listo')
+ *
+ * toast.dismiss(id)
+ * toast.clear() // todos
+ * ```
+ */
 export function useToast() {
-    const toast = useToastStore()
-
-    return {
-        // Métodos originales
-        success: toast.success,
-        info: toast.info,
-        error: toast.error,
-        show: toast.show,
-        remove: toast.remove,
-        update: toast.update,
-        updateProgress: toast.updateProgress,
-        completeProcess: toast.completeProcess,
-
-        // Métodos rápidos para diferentes tipos de toast
-        alert: {
-            success: (message, config = {}) => toast.success({
-                type: 'alert',
-                message,
-                duration: 3000,
-                ...config
-            }),
-
-            error: (message, config = {}) => toast.error({
-                type: 'alert',
-                message,
-                duration: 5000,
-                ...config
-            }),
-
-            warning: (message, config = {}) => toast.show({
-                type: 'alert',
-                severity: 'warning',
-                icon: 'ti ti-alert-triangle',
-                title: 'Warning',
-                message,
-                duration: 4000,
-                ...config
-            }),
-
-            info: (message, config = {}) => toast.info({
-                type: 'alert',
-                message,
-                duration: 3000,
-                ...config
-            })
-        },
-
-        notification: (title, message, config = {}) => toast.show({
-            type: 'notification',
-            title,
-            message,
-            duration: 0, // Las notificaciones no se auto-dismiss por defecto
-            ...config
-        }),
-
-        process: (title, config = {}) => toast.show({
-            type: 'process',
-            title,
-            progress: 0,
-            progressLabel: 'Iniciando...',
-            duration: 0, // Los procesos no se auto-dismiss
-            ...config
-        })
-    }
+  const store = useToastStore()
+  return {
+    show:            store.show.bind(store),
+    success:         store.success.bind(store),
+    error:           store.error.bind(store),
+    warning:         store.warning.bind(store),
+    info:            store.info.bind(store),
+    notify:          store.notify.bind(store),
+    process:         store.process.bind(store),
+    update:          store.update.bind(store),
+    updateProgress:  store.updateProgress.bind(store),
+    completeProcess: store.completeProcess.bind(store),
+    failProcess:     store.failProcess.bind(store),
+    dismiss:         store.dismiss.bind(store),
+    clear:           store.clear.bind(store),
+  }
 }
