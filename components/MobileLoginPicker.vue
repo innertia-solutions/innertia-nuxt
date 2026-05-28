@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import * as TablerIcons from '@tabler/icons-vue'
 import { IconArrowRight } from '@tabler/icons-vue'
-import type { AppDefinition } from '~/configs/apps'
+import type { ContextDefinition } from '~/configs/apps'
 
 const props = defineProps<{
-  /** Apps a mostrar como opciones de login. */
-  options: AppDefinition[]
+  /** Contexts a mostrar como opciones de login. */
+  options: ContextDefinition[]
   /** Título personalizable. */
   title?: string
 }>()
 
 const emit = defineEmits<{
-  /** Emitido cuando el usuario elige un app — el padre se encarga de navegar y recordar la elección. */
-  pick: [app: AppDefinition]
+  /** Emitido cuando el usuario elige un context — el padre se encarga de navegar y recordar la elección. */
+  pick: [context: ContextDefinition]
 }>()
 
 const heading = computed(() => props.title ?? '¿Cómo quieres ingresar?')
@@ -46,25 +46,25 @@ function resolveIcon(name?: string) {
         <!-- Opciones -->
         <div class="space-y-3">
           <button
-            v-for="app in options"
-            :key="app.path"
+            v-for="context in options"
+            :key="context.path"
             type="button"
             class="group w-full flex items-center gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-4 text-left hover:border-violet-300 dark:hover:border-violet-700 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 transition-colors"
-            @click="emit('pick', app)"
+            @click="emit('pick', context)"
           >
             <div class="shrink-0 size-11 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center group-hover:bg-violet-200 dark:group-hover:bg-violet-900/50 transition-colors">
               <component
-                v-if="resolveIcon(app.icon)"
-                :is="resolveIcon(app.icon)"
+                v-if="resolveIcon(context.icon)"
+                :is="resolveIcon(context.icon)"
                 class="size-5 text-violet-600 dark:text-violet-400"
               />
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-base font-semibold text-slate-900 dark:text-white">
-                {{ app.label }}
+                {{ context.label }}
               </div>
-              <div v-if="app.description" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
-                {{ app.description }}
+              <div v-if="context.description" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+                {{ context.description }}
               </div>
             </div>
             <IconArrowRight class="shrink-0 size-5 text-slate-400 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors" />

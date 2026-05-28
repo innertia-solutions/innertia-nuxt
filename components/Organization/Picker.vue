@@ -10,12 +10,12 @@
  */
 import { IconBuildingSkyscraper, IconArrowRight } from '@tabler/icons-vue'
 
-const { current: currentApp } = useApp()
+const { current: currentContext } = useContext()
 const { available, switchTo } = useOrganization()
 
 const title = computed(() =>
-  currentApp.value
-    ? `Elige una organización para continuar en ${currentApp.value.label}`
+  currentContext.value
+    ? `Elige una organización para continuar en ${currentContext.value.label}`
     : 'Elige una organización'
 )
 

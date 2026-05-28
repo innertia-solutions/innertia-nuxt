@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { IconDeviceDesktop, IconArrowRight, IconCopy, IconCheck } from '@tabler/icons-vue'
-import type { AppDefinition } from '~/configs/apps'
+import type { ContextDefinition } from '~/configs/apps'
 
 const props = defineProps<{
-  /** App al que se intentó acceder (para el copy contextual). */
-  blockedApp?: AppDefinition | null
-  /** App mobile-friendly al que el usuario puede continuar (opcional). */
-  fallbackApp?: AppDefinition | null
+  /** Context al que se intentó acceder (para el copy contextual). */
+  blockedApp?: ContextDefinition | null
+  /** Context mobile-friendly al que el usuario puede continuar (opcional). */
+  fallbackApp?: ContextDefinition | null
 }>()
 
 const route = useRoute()

@@ -99,7 +99,7 @@ async function handleOauth(provider: OAuthProvider) {
 
 // ── Cross-links a otros contextos mobile-friendly (opcional) ───────────────
 const { isMobile } = useMobileGuard()
-const { all } = useApp()
+const { all } = useContext()
 const otherMobileApps = computed(() => {
   if (!props.showCrossLinks) return []
   return all.value.filter((a: any) => a.path !== `/${props.context}` && a.mobile?.mode === 'allow')
