@@ -14,7 +14,7 @@ export function useAuth() {
    */
   async function performLogin(context, email, password, remember = false) {
     authStore.rememberUser = remember
-    const data = await api.post(`${context}/auth/login`, { email, password, app: context })
+    const data = await api.post(`${context}/auth/login`, { email, password, context })
     authStore.saveToken(data.token ?? data.access_token)
     authStore.setCurrentContext(context)
     queryClient.clear()
