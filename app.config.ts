@@ -2,12 +2,12 @@
 //
 //   appConfig: {
 //     innertia: {
-//       apps: { backoffice: {...}, technician: {...} },
+//       contexts: { backoffice: {...}, technician: {...} },
 //       mobile: { breakpoint: 1024 },
 //     },
 //   }
 //
-// Si el producto no declara `apps`, el feature de contextos queda inactivo
+// Si el producto no declara `contexts`, el feature de contextos queda inactivo
 // (middleware no redirige, picker no se muestra).
 export default defineAppConfig({
   innertia: {
@@ -121,11 +121,11 @@ export default defineAppConfig({
     },
 
     /**
-     * Declaración de "apps" (contextos) del producto.
-     * Cada app define un prefijo de URL que mapea a un contexto del backend
+     * Declaración de contextos del producto.
+     * Cada contexto define un prefijo de URL que mapea a un contexto del backend
      * (matching con `availableContexts` que devuelve `auth/me`).
      */
-    apps: {} as Record<string, AppDefinition>,
+    contexts: {} as Record<string, ContextDefinition>,
 
     /**
      * Política mobile global. Se aplica si una `app` no tiene `mobile.mode` propio.
@@ -144,7 +144,7 @@ export default defineAppConfig({
 
 export type InnertiaMode = 'saas' | 'app'
 
-export type AppMobileMode = 'allow' | 'block' | 'redirect'
+export type ContextMobileMode = 'allow' | 'block' | 'redirect'
 
 /** Color: nombre de paleta Tailwind o scale custom 50→950. */
 export type ColorScale = Partial<Record<50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 950, string>>
@@ -175,8 +175,8 @@ export interface MenuItem {
   pattern?: string
 }
 
-export interface AppDefinition {
-  /** Prefijo de URL — la ruta debe empezar con esto para considerarse "dentro" del app. */
+export interface ContextDefinition {
+  /** Prefijo de URL — la ruta debe empezar con esto para considerarse "dentro" del contexto. */
   path: string
   /** Clave del contexto que matchea con `availableContexts` del backend. */
   context: string
@@ -186,13 +186,13 @@ export interface AppDefinition {
   description?: string
   /** Nombre del icono de @tabler/icons-vue (sin "Icon"). */
   icon?: string
-  /** Ruta de login del app. */
+  /** Ruta de login del contexto. */
   loginPath: string
   /** Ruta home (post-login). */
   home: string
   /** Política de uso en mobile. */
   mobile: {
-    mode: AppMobileMode
+    mode: ContextMobileMode
     /** Solo si mode === 'redirect' — adónde mandar desde mobile. */
     redirectTo?: string
   }
