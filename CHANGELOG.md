@@ -36,4 +36,3 @@ Aligns frontend with innertia-laravel which already renamed the concept.
 **Login body field:**
 
 `performLogin()` now sends `context` instead of `app` in the POST body — matching what innertia-laravel now expects.
-```

@@ -23,17 +23,17 @@ export function useMobileGuard() {
   const isMobile = useMediaQuery(`(max-width: ${breakpoint - 1}px)`)
 
   /** Contextos con mode 'allow' en mobile. */
-  const mobileApps = computed<ContextDefinition[]>(() =>
+  const mobileContexts = computed<ContextDefinition[]>(() =>
     all.value.filter(a => a.mobile?.mode === 'allow')
   )
 
   /** Contextos mobile-friendly + accesibles para el usuario autenticado. */
-  const mobileAccessibleApps = computed<ContextDefinition[]>(() =>
+  const mobileAccessibleContexts = computed<ContextDefinition[]>(() =>
     accessible.value.filter(a => a.mobile?.mode === 'allow')
   )
 
   /** ¿El contexto actual está bloqueado en mobile? */
-  const isCurrentAppBlocked = computed<boolean>(() => {
+  const isCurrentContextBlocked = computed<boolean>(() => {
     if (!isMobile.value) return false
     if (!current.value) return false
     return current.value.mobile?.mode === 'block'
@@ -43,9 +43,9 @@ export function useMobileGuard() {
    * Para el blocker: si el usuario está autenticado y tiene OTRO contexto mobile-friendly,
    * lo ofrecemos como fallback ("continuar en X").
    */
-  const mobileFallbackApp = computed<ContextDefinition | null>(() => {
+  const mobileFallbackContext = computed<ContextDefinition | null>(() => {
     if (!authStore.isAuthenticated()) return null
-    return mobileAccessibleApps.value[0] ?? null
+    return mobileAccessibleContexts.value[0] ?? null
   })
 
   // ── Cookie helpers para recordar última elección del picker ─────────────────
@@ -70,10 +70,10 @@ export function useMobileGuard() {
 
   return {
     isMobile,
-    mobileApps,
-    mobileAccessibleApps,
-    isCurrentAppBlocked,
-    mobileFallbackApp,
+    mobileContexts,
+    mobileAccessibleContexts,
+    isCurrentContextBlocked,
+    mobileFallbackContext,
     rememberPickerChoice,
     getRememberedPickerChoice,
     clearRememberedPickerChoice,

@@ -1,7 +1,7 @@
 /**
  * Composable de organizaciones (sub-tenant scoping).
  *
- * Lee el contexto actual del usuario (via useApp) y expone su org activa + lista
+ * Lee el contexto actual del usuario (via useContext) y expone su org activa + lista
  * de accesibles para ese contexto. Cambiar de contexto rota la org automáticamente.
  *
  * Uso típico:
@@ -19,7 +19,7 @@ export function useOrganization() {
   const allowConsolidated = computed(() => !!appConfig.innertia?.organizations?.allowConsolidated)
   const required = computed(() => !!appConfig.innertia?.organizations?.required)
 
-  /** Contexto actual (key) — desde useApp. */
+  /** Contexto actual (key) — desde useContext. */
   const currentContext = computed<string | null>(() => currentApp.value?.context ?? null)
 
   /** Lista de orgs accesibles para el contexto actual. */
