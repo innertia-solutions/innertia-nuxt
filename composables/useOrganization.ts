@@ -10,7 +10,7 @@
  *   <OrganizationSwitcher v-if="available.length > 1" />
  */
 export function useOrganization() {
-  const { current: currentApp } = useApp()
+  const { current: currentApp } = useContext()
   const organizationStore = useOrganizationStore()
   const appConfig = useAppConfig()
   const { fetchMe } = useAuth()
