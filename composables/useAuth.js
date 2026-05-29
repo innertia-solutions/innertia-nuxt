@@ -14,7 +14,8 @@ export function useAuth() {
    */
   async function performLogin(context, email, password, remember = false) {
     authStore.rememberUser = remember
-    const data = await api.post(`${context}/auth/login`, { email, password, context })
+    // Endpoint agnóstico de contexto: el contexto viaja en el payload (y luego en el JWT).
+    const data = await api.post('auth/login', { email, password, context })
     authStore.saveToken(data.token ?? data.access_token)
     authStore.setCurrentContext(context)
     queryClient.clear()
@@ -75,7 +76,9 @@ export function useAuth() {
    * Returns the URL string from the backend.
    */
   async function getOauthRedirectUrl(context, provider) {
-    const data = await api.get(`${context}/auth/oauth/${provider}/redirect`)
+    // Endpoint agnóstico: el contexto viaja como query param (el backend lo
+    // codifica en el state de OAuth y lo recupera en el callback).
+    const data = await api.get(`auth/${provider}/redirect`, { params: { context } })
     return data.url
   }
 
@@ -83,7 +86,7 @@ export function useAuth() {
    * Handle OAuth callback. Same success path as performLogin.
    */
   async function handleOauthCallback(context, provider, code) {
-    const data = await api.post(`${context}/auth/oauth/${provider}/callback`, { code })
+    const data = await api.post(`auth/${provider}/callback`, { code, context })
     authStore.saveToken(data.token ?? data.access_token)
     authStore.setCurrentContext(context)
     queryClient.clear()
