@@ -27,8 +27,8 @@ function resolveIcon(name?: string) {
   <div class="min-h-screen flex flex-col bg-white dark:bg-slate-950">
     <!-- Header con logo -->
     <div class="flex items-center justify-center px-6 pt-10 pb-8">
-      <img src="/isologo-light.png" alt="Asetio" class="h-8 dark:hidden" />
-      <img src="/isologo-dark.png" alt="Asetio" class="h-8 hidden dark:block" />
+      <img :src="'/isologo-light.png'" alt="Asetio" class="h-8 dark:hidden" />
+      <img :src="'/isologo-dark.png'" alt="Asetio" class="h-8 hidden dark:block" />
     </div>
 
     <!-- Body -->

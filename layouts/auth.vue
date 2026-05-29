@@ -42,8 +42,8 @@ const branding = computed(() => appConfig.innertia?.branding ?? { name: 'Innerti
           <div class="w-full max-w-sm flex">
             <NuxtLink to="/" class="pointer-events-auto">
               <slot name="logo">
-                <img src="/isologo-light.png" :alt="branding.name" class="h-7 dark:hidden" />
-                <img src="/isologo-dark.png" :alt="branding.name" class="h-7 hidden dark:block" />
+                <img :src="'/isologo-light.png'" :alt="branding.name" class="h-7 dark:hidden" />
+                <img :src="'/isologo-dark.png'" :alt="branding.name" class="h-7 hidden dark:block" />
               </slot>
             </NuxtLink>
           </div>

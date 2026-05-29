@@ -135,8 +135,8 @@ const taglineLines = computed(() => (marketing.value.tagline ?? '').split('\n'))
     <!-- Logo (slot opcional, default: logos del /public del producto) -->
     <div class="relative z-10">
       <slot name="logo">
-        <img src="/isologo-light.png" :alt="appConfig.innertia?.branding?.name ?? 'Logo'" class="h-8 dark:hidden" />
-        <img src="/isologo-dark.png" :alt="appConfig.innertia?.branding?.name ?? 'Logo'" class="h-8 hidden dark:block" />
+        <img :src="'/isologo-light.png'" :alt="appConfig.innertia?.branding?.name ?? 'Logo'" class="h-8 dark:hidden" />
+        <img :src="'/isologo-dark.png'" :alt="appConfig.innertia?.branding?.name ?? 'Logo'" class="h-8 hidden dark:block" />
       </slot>
     </div>
 

@@ -77,8 +77,8 @@ const homeRoute = computed(() => menuItems.value[0]?.route ?? '/')
           <div class="flex items-center gap-x-3">
             <slot name="logo">
               <NuxtLink :to="homeRoute" class="flex-none ml-1">
-                <img src="/isologo-light.png" class="h-6 w-auto dark:hidden" :alt="branding.name" />
-                <img src="/isologo-dark.png" class="h-6 w-auto hidden dark:block" :alt="branding.name" />
+                <img :src="'/isologo-light.png'" class="h-6 w-auto dark:hidden" :alt="branding.name" />
+                <img :src="'/isologo-dark.png'" class="h-6 w-auto hidden dark:block" :alt="branding.name" />
               </NuxtLink>
             </slot>
             <button
