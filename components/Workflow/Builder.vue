@@ -5,7 +5,7 @@ import { Background }                              from '@vue-flow/background'
 import { Controls }                                from '@vue-flow/controls'
 import StepNode                                    from './nodes/StepNode.vue'
 import TransitionEdge                              from './edges/TransitionEdge.vue'
-import { definitionToFlow, flowToDefinition, autoLayoutWorkflow } from '~/composables/useWorkflowLayout.js'
+import { definitionToFlow, flowToDefinition, autoLayoutWorkflow } from '~/composables/useWorkflowLayout'
 
 // ── Props & emits ─────────────────────────────────────────────────────────────
 const props = defineProps({
