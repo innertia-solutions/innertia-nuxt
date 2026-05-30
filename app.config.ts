@@ -17,8 +17,15 @@ export default defineAppConfig({
      *              Default por compatibilidad con productos existentes.
      *   - 'app'  → single-tenant / app interna. No detecta subdomain ni inyecta tenant header.
      *              Auth y contextos siguen funcionando igual que en saas.
+     *
+     * IMPORTANTE: se deja `undefined` a propósito (no hardcodear 'saas' aquí).
+     * Nuxt mergea `app.config.ts` de la capa CON MAYOR prioridad que el bloque
+     * `appConfig` del `nuxt.config.ts` del producto (defuFn(cfg_capa, inlineConfig)).
+     * Si pusiéramos un valor concreto, el producto no podría cambiarlo desde su
+     * nuxt.config. Con `undefined`, defu deja pasar el valor del producto y el
+     * default real ('saas') lo aplica `useInnertiaMode()` vía `?? 'saas'`.
      */
-    mode: 'saas' as InnertiaMode,
+    mode: undefined as InnertiaMode | undefined,
 
     /**
      * Branding del producto (nombre + versión). Los logos viven en `/public/isologo-light.png`
