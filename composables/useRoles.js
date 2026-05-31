@@ -6,12 +6,12 @@ export function useRoles() {
 
   const list = (params = {}) => useQuery({
     queryKey: computed(() => ['roles', toValue(params)]),
-    queryFn: () => api.post('backoffice/roles', toValue(params)),
+    queryFn: () => api.post('roles', toValue(params)),
   })
 
   const detail = (id) => useQuery({
     queryKey: computed(() => ['roles', toValue(id)]),
-    queryFn: () => api.get(`backoffice/roles/${toValue(id)}`),
+    queryFn: () => api.get(`roles/${toValue(id)}`),
     enabled: computed(() => !!toValue(id)),
   })
 
@@ -20,12 +20,12 @@ export function useRoles() {
   const invalidateRoles = () => queryClient.invalidateQueries({ queryKey: ['roles'] })
 
   const create = () => useMutation({
-    mutationFn: (data) => api.post('backoffice/roles', data),
+    mutationFn: (data) => api.post('roles', data),
     onSuccess: invalidateRoles,
   })
 
   const update = () => useMutation({
-    mutationFn: ({ id, ...data }) => api.put(`backoffice/roles/${id}`, data),
+    mutationFn: ({ id, ...data }) => api.put(`roles/${id}`, data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['roles', id] })
       invalidateRoles()
@@ -33,13 +33,13 @@ export function useRoles() {
   })
 
   const remove = () => useMutation({
-    mutationFn: (id) => api.delete(`backoffice/roles/${id}`),
+    mutationFn: (id) => api.delete(`roles/${id}`),
     onSuccess: invalidateRoles,
   })
 
   const syncPermissions = () => useMutation({
     mutationFn: ({ id, permissions }) =>
-      api.post(`backoffice/roles/${id}/permissions`, { permissions }),
+      api.post(`roles/${id}/permissions`, { permissions }),
     onSuccess: (_, { id }) =>
       queryClient.invalidateQueries({ queryKey: ['roles', id] }),
   })

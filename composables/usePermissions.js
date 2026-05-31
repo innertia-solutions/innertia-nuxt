@@ -17,7 +17,7 @@ export function usePermissions() {
   const hasAll = (permissions) => permissions.every(p => authStore.permissions.includes(p))
 
   /** Fetch all permission groups from backoffice — returns [{ category, category_alias, permissions[] }] */
-  const all = (params = {}) => api.get('backoffice/permissions', { params })
+  const all = (params = {}) => api.get('permissions', { params })
 
   return { can, hasRole, hasAny, hasAll, all }
 }

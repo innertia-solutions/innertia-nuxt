@@ -37,12 +37,12 @@ export function useEntity() {
 
   const list = (params = {}) => useQuery({
     queryKey: computed(() => ['entities', toValue(params)]),
-    queryFn: () => api.post('backoffice/entities', toValue(params)),
+    queryFn: () => api.post('entities', toValue(params)),
   })
 
   const detail = (id) => useQuery({
     queryKey: computed(() => ['entities', toValue(id)]),
-    queryFn: () => api.get(`backoffice/entities/${toValue(id)}`),
+    queryFn: () => api.get(`entities/${toValue(id)}`),
     enabled: computed(() => !!toValue(id)),
   })
 
@@ -51,12 +51,12 @@ export function useEntity() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['entities'] })
 
   const create = () => useMutation({
-    mutationFn: (data) => api.post('backoffice/entities', data),
+    mutationFn: (data) => api.post('entities', data),
     onSuccess: invalidate,
   })
 
   const update = () => useMutation({
-    mutationFn: ({ id, ...data }) => api.put(`backoffice/entities/${id}`, data),
+    mutationFn: ({ id, ...data }) => api.put(`entities/${id}`, data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['entities', id] })
       invalidate()
@@ -64,14 +64,14 @@ export function useEntity() {
   })
 
   const remove = () => useMutation({
-    mutationFn: (id) => api.delete(`backoffice/entities/${id}`),
+    mutationFn: (id) => api.delete(`entities/${id}`),
     onSuccess: invalidate,
   })
 
   // Agregar acciones adicionales siguiendo el mismo patrón:
   //
   // const activate = () => useMutation({
-  //   mutationFn: (id) => api.post(`backoffice/entities/${id}/activate`),
+  //   mutationFn: (id) => api.post(`entities/${id}/activate`),
   //   onSuccess: invalidate,
   // })
 
