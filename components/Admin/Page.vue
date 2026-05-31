@@ -8,8 +8,6 @@ const props = defineProps({
   color:       { type: String,  default: 'slate' },
 })
 
-const slots = useSlots()
-
 const iconComponent = computed(() => props.icon ? TablerIcons[props.icon] ?? null : null)
 
 const iconColorClass = computed(() => ({
@@ -27,30 +25,30 @@ const iconColorClass = computed(() => ({
 <template>
   <div class="relative space-y-2">
 
-    <!-- Page header card -->
-    <div v-if="title" class="sticky top-0 z-20 -mx-3 -mt-3 px-3 pt-3 bg-background-1">
-    <div v-if="$slots.breadcrumb" class="flex items-center gap-x-1 px-1 pt-2 pb-0.5">
-      <slot name="breadcrumb" />
-    </div>
-    <div class="flex items-center justify-between bg-card border border-card-line rounded-2xl shadow-sm px-4 py-3">
-      <div class="flex items-center gap-x-4 min-w-0">
-        <div v-if="iconComponent" class="shrink-0 size-10 rounded-xl flex items-center justify-center border border-current/15" :class="iconColorClass">
-          <component :is="iconComponent" class="size-5" stroke="1.5" />
-        </div>
-        <div class="min-w-0">
-          <div class="flex items-baseline gap-x-2 flex-wrap">
+    <!-- Page header -->
+    <div v-if="title" class="sticky top-0 z-20 -mx-3 -mt-3 px-3 bg-background/60 backdrop-blur-md">
+
+      <!-- Breadcrumb -->
+      <div v-if="$slots.breadcrumb" class="flex items-center gap-x-1 px-1 pt-2 pb-0.5">
+        <slot name="breadcrumb" />
+      </div>
+
+      <!-- Header: icono + título + acciones -->
+      <div class="flex items-center justify-between px-1 py-2">
+        <div class="flex items-center gap-x-3 min-w-0">
+          <div v-if="iconComponent" class="shrink-0 size-10 rounded-xl flex items-center justify-center border border-current/15" :class="iconColorClass">
+            <component :is="iconComponent" class="size-5" stroke="1.5" />
+          </div>
+          <div class="min-w-0">
             <h1 class="text-lg font-semibold text-foreground">{{ title }}</h1>
-            <template v-if="description">
-              <span class="size-1 rounded-full bg-surface-1 shrink-0 self-center hidden sm:block" />
-              <p class="text-sm text-muted-foreground">{{ description }}</p>
-            </template>
+            <p v-if="description" class="text-sm text-muted-foreground">{{ description }}</p>
           </div>
         </div>
+        <div v-if="$slots.actions" class="flex items-center gap-x-2 shrink-0 ms-4">
+          <slot name="actions" />
+        </div>
       </div>
-      <div v-if="$slots.actions" class="flex items-center gap-x-2 shrink-0 ms-4">
-        <slot name="actions" />
-      </div>
-    </div>
+
     </div>
 
     <!-- Tabs -->
@@ -59,7 +57,9 @@ const iconColorClass = computed(() => ({
     </div>
 
     <!-- Page content -->
-    <div class="relative"><slot /></div>
+    <div class="relative">
+      <slot />
+    </div>
 
   </div>
 </template>
