@@ -21,6 +21,8 @@ const props = defineProps({
   infoPosition:     { type: String, default: 'bottom' },
   /** Mostrar el selector "Filas: 10/25/50/100/Otro...". Default false. */
   showPerPage:      { type: Boolean, default: false },
+  /** Modo lista: sin paginación (envía ?list=true, carga todas las filas y scrollea). */
+  list:             { type: Boolean, default: false },
   /** 'table' | 'cards' | 'database' | 'grid' (legacy → maps to cards) */
   viewMode: { type: String, default: 'table' },
   gridClass: { type: String, default: 'grid grid-cols-2 lg:grid-cols-3 gap-4' },
@@ -244,6 +246,8 @@ const buildRequestParams = () => {
     perPage: pagination.value.pageSize,
     sortColumns: sorting.value.map(s => ({ column: s.id, direction: s.desc ? 'desc' : 'asc' })),
     columnFilters: Object.fromEntries(columnFilters.value.map(f => [f.id, f.value])),
+    // Modo lista: sin paginación, el backend devuelve todas las filas (search/sort/filtros igual).
+    ...(props.list ? { list: true } : {}),
     ...otherParams,
   }
 }
@@ -596,6 +600,9 @@ defineExpose({
 <template>
   <div class="relative flex flex-col">
 
+    <!-- Modo lista: contenedor scrolleable (todas las filas cargadas, sin paginación) -->
+    <div :class="list ? 'max-h-[70vh] overflow-y-auto' : 'contents'">
+
     <!-- Table view -->
     <ViewTable
       v-if="currentView === 'table'"
@@ -664,6 +671,8 @@ defineExpose({
       </template>
     </ViewDatabase>
 
+    </div><!-- /scroll lista -->
+
     <!-- Pagination & controls bar -->
     <div
       v-if="infoPosition !== 'none'"
@@ -709,8 +718,8 @@ defineExpose({
         </div>
       </div>
 
-      <!-- Right: per-page + pagination -->
-      <div class="flex items-center gap-x-8">
+      <!-- Right: per-page + pagination (oculto en modo lista) -->
+      <div v-if="!list" class="flex items-center gap-x-8">
         <!-- Per page selector -->
         <div v-if="showPerPage" class="flex items-center gap-x-2">
           <label class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Filas:</label>

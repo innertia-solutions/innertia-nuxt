@@ -20,6 +20,10 @@ const props = defineProps({
   /** Mostrar selector "Filas por página" en el footer. Default false. */
   showPerPage:             { type: Boolean, default: false },
 
+  /** Modo lista: sin paginación. Carga todas las filas (server-side: ?list=true) y
+   *  el área de la tabla se vuelve scrolleable en vez de crecer indefinidamente. */
+  list:                    { type: Boolean, default: false },
+
   // Tamaño visible (wrap + overflow auto). 'sm' | 'md' (default) | 'lg' | 'fit'.
   size:                    { type: String, default: 'md' },
   filters:                 { type: Array,   default: () => [] },
@@ -758,6 +762,7 @@ defineExpose({ getSelectedRows, reload, clearCache, exportTable, tableRef, close
           :show-reload-button="showReloadButton"
           :info-position="infoPosition"
           :show-per-page="showPerPage"
+          :list="list"
           :click-row-to-open="clickRowToOpen"
           :preview-row-id="previewRow?.id ?? null"
           :preview-mode="!!previewEnabled"
