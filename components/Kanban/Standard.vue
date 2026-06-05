@@ -296,16 +296,17 @@ const showColumnPanel = ref(false)
 const toggleColumnPanel = () => { showColumnPanel.value = !showColumnPanel.value }
 
 // ─── Color map (tokens-aware) ────────────────────────────────────────────────
+// `col` = tinte de fondo de la columna en modo sin bordes (estilo Notion/Trello).
 const colorMap = {
-  slate:  { dot: 'bg-slate-400',   over: 'ring-2 ring-slate-400' },
-  red:    { dot: 'bg-red-500',     over: 'ring-2 ring-red-400' },
-  yellow: { dot: 'bg-yellow-500',  over: 'ring-2 ring-yellow-400' },
-  amber:  { dot: 'bg-amber-500',   over: 'ring-2 ring-amber-400' },
-  green:  { dot: 'bg-emerald-500', over: 'ring-2 ring-emerald-400' },
-  blue:   { dot: 'bg-blue-500',    over: 'ring-2 ring-blue-400' },
-  indigo: { dot: 'bg-indigo-500',  over: 'ring-2 ring-indigo-400' },
-  purple: { dot: 'bg-purple-500',  over: 'ring-2 ring-purple-400' },
-  pink:   { dot: 'bg-pink-500',    over: 'ring-2 ring-pink-400' },
+  slate:  { dot: 'bg-slate-400',   over: 'ring-2 ring-slate-400',  col: 'bg-slate-100/70 dark:bg-slate-800/40' },
+  red:    { dot: 'bg-red-500',     over: 'ring-2 ring-red-400',    col: 'bg-red-50 dark:bg-red-900/15' },
+  yellow: { dot: 'bg-yellow-500',  over: 'ring-2 ring-yellow-400', col: 'bg-yellow-50 dark:bg-yellow-900/15' },
+  amber:  { dot: 'bg-amber-500',   over: 'ring-2 ring-amber-400',  col: 'bg-amber-50 dark:bg-amber-900/15' },
+  green:  { dot: 'bg-emerald-500', over: 'ring-2 ring-emerald-400', col: 'bg-emerald-50 dark:bg-emerald-900/15' },
+  blue:   { dot: 'bg-blue-500',    over: 'ring-2 ring-blue-400',   col: 'bg-blue-50 dark:bg-blue-900/15' },
+  indigo: { dot: 'bg-indigo-500',  over: 'ring-2 ring-indigo-400', col: 'bg-indigo-50 dark:bg-indigo-900/15' },
+  purple: { dot: 'bg-purple-500',  over: 'ring-2 ring-purple-400', col: 'bg-purple-50 dark:bg-purple-900/15' },
+  pink:   { dot: 'bg-pink-500',    over: 'ring-2 ring-pink-400',   col: 'bg-pink-50 dark:bg-pink-900/15' },
 }
 const getColors = (state) => colorMap[state.color ?? 'slate'] ?? colorMap.slate
 
@@ -458,7 +459,7 @@ defineExpose({ reload: fetchAll, rows })
               'flex-shrink-0 w-72 flex flex-col overflow-hidden transition-shadow',
               bordered
                 ? 'rounded-card border border-card-line bg-card'
-                : 'rounded-card bg-muted/50',
+                : ['rounded-card', getColors(state).col],
               dragOverState === state.key ? getColors(state).over : '',
             ]"
             @dragover="onDragOver($event, state.key)"
