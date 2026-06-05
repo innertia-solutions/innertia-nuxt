@@ -27,7 +27,8 @@ export function useRealtime() {
     }
 
     const PusherModule = await import('pusher-js')
-    const Pusher = PusherModule.default ?? PusherModule
+    // Interop CJS/ESM: el constructor puede estar en .default, .default.default o el módulo
+    const Pusher = PusherModule.default?.default ?? PusherModule.default ?? PusherModule
 
     // Build auth headers from all registered interceptors (auth token, X-Tenant-Id, etc.)
     const { run } = useRequestInterceptors()
