@@ -14,6 +14,7 @@ export function useRealtime() {
     pusherAppCluster,
     pusherWsHost,
     pusherWsPort,
+    pusherForceTLS,   // false para Soketi/Reverb local sin TLS (ws). Default true.
   } = config.public
 
   const connect = async () => {
@@ -33,10 +34,12 @@ export function useRealtime() {
     const authHeaders = {}
     run(authHeaders)
 
+    const tls = pusherForceTLS !== false // default true; false = ws plano (local)
     const options = {
       cluster: pusherAppCluster || 'mt1',
-      forceTLS: true,
-      enabledTransports: ['ws', 'wss'],
+      forceTLS: tls,
+      enabledTransports: tls ? ['ws', 'wss'] : ['ws'],
+      disableStats: true,
       auth: {
         headers: authHeaders,
       },
