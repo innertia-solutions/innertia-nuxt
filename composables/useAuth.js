@@ -82,17 +82,5 @@ export function useAuth() {
     return data.url
   }
 
-  /**
-   * Handle OAuth callback. Same success path as performLogin.
-   */
-  async function handleOauthCallback(context, provider, code) {
-    const data = await api.post(`auth/${provider}/callback`, { code, context })
-    authStore.saveToken(data.token ?? data.access_token)
-    authStore.setCurrentContext(context)
-    queryClient.clear()
-    await fetchMe()
-    return data
-  }
-
-  return { performLogin, fetchMe, logout, getOauthRedirectUrl, handleOauthCallback }
+  return { performLogin, fetchMe, logout, getOauthRedirectUrl }
 }
