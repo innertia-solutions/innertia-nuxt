@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{
-  options: { value: string | number; label: string }[]
+  options: { value: string | number; label: string; disabled?: boolean }[]
   modelValue?: string | number | null
   label?: string
   placeholder?: string
@@ -96,6 +96,7 @@ const handleChange = (e: Event) => {
             v-for="option in options"
             :key="option.value"
             :value="option.value"
+            :disabled="option.disabled"
           >
             {{ option.label }}
           </option>
