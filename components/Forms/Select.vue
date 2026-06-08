@@ -7,12 +7,21 @@ const props = defineProps<{
   hint?: string
   error?: string
   disabled?: boolean
+  /** Opciones cargándose desde BD: muestra un loader en vez del select. */
+  loading?: boolean
+  /** Falló la carga de opciones: muestra mensaje + botón Reintentar (emite 'retry'). */
+  loadError?: boolean | string
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | number | null]
   change: [value: string | number | null]
+  retry: []
 }>()
+
+const loadErrorMessage = computed(() =>
+  typeof props.loadError === 'string' && props.loadError ? props.loadError : 'No se pudieron cargar las opciones.'
+)
 
 const selectRef = ref<HTMLSelectElement | null>(null)
 
@@ -69,8 +78,26 @@ const handleChange = (e: Event) => {
       {{ label }}
     </label>
 
+    <!-- Cargando opciones desde BD -->
+    <div v-if="loading" class="innertia-field flex items-center gap-2 text-muted-foreground cursor-default">
+      <svg class="animate-spin size-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10" opacity=".25" /><path d="M22 12a10 10 0 0 1-10 10" />
+      </svg>
+      <span class="text-sm">Cargando…</span>
+    </div>
+
+    <!-- Error al cargar opciones → botón reintentar -->
+    <div v-else-if="loadError" class="innertia-field flex items-center justify-between gap-2 select-error">
+      <span class="text-sm text-red-500 truncate">{{ loadErrorMessage }}</span>
+      <button type="button" @click="emit('retry')"
+        class="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+        <svg class="size-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.36 2.64L3 8" /><path d="M3 3v5h5" /></svg>
+        Reintentar
+      </button>
+    </div>
+
     <!-- Select (HSSelect) -->
-    <ClientOnly>
+    <ClientOnly v-else>
       <template #fallback>
         <div class="innertia-field bg-surface animate-pulse" />
       </template>
