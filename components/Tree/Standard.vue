@@ -211,6 +211,41 @@ const fetchInitial = async () => {
   }
 }
 
+/**
+ * Refresca el árbol PRESERVANDO la expansión actual: re-fetchea los roots y los
+ * hijos de cada nodo expandido (datos frescos, sin colapsar ni resetear scroll).
+ * Útil tras mutar un nodo (ej. marcar revisado) sin remontar el componente.
+ */
+const reload = async () => {
+  loading.value = true
+  isFetching.value = true
+  isDataFromCache.value = false
+  try {
+    const res = await api.post(props.endpoint, buildBody())
+    roots.value = res?.data ?? []
+    meta.value  = res?.meta ?? null
+
+    const expanded = [...expandedSet.value]
+    const fresh = {}
+    await Promise.all(expanded.map(async (nodeId) => {
+      try {
+        const r = await api.post(props.endpoint, buildBody({ expand: nodeId }))
+        fresh[nodeId] = r?.data ?? []
+      } catch {
+        fresh[nodeId] = childrenById.value[nodeId] ?? []
+      }
+    }))
+    childrenById.value = fresh
+    if (props.cached) saveToCache()
+    emit('loaded', res)
+  } catch (e) {
+    console.error('[Tree.Standard] reload failed:', e)
+  } finally {
+    loading.value = false
+    isFetching.value = false
+  }
+}
+
 // ─── Cache ────────────────────────────────────────────────────────────────────
 const cacheKey = computed(() => {
   if (!props.cached || !props.name) return null
@@ -527,6 +562,7 @@ onBeforeUnmount(() => {
 
 defineExpose({
   refresh: fetchInitial,
+  reload, // refresca preservando expansión (sin colapsar)
   clearChecked,
   getChecked: () => [...checkedSet.value],
 })
