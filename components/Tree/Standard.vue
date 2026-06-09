@@ -220,7 +220,8 @@ const fetchInitial = async () => {
  * Útil tras mutar un nodo (ej. marcar revisado) sin remontar el componente.
  */
 const reload = async () => {
-  loading.value = true
+  // No tocamos `loading` (eso dispara el skeleton y hace desaparecer el árbol).
+  // Solo `isFetching` → spinner sutil, el árbol queda visible durante el refresh.
   isFetching.value = true
   isDataFromCache.value = false
   try {
@@ -244,7 +245,6 @@ const reload = async () => {
   } catch (e) {
     console.error('[Tree.Standard] reload failed:', e)
   } finally {
-    loading.value = false
     isFetching.value = false
   }
 }
@@ -629,6 +629,9 @@ defineExpose({
 
       <!-- Secondary actions -->
       <div class="ml-auto flex items-center gap-1">
+
+        <!-- Spinner de refresco (reload preservando expansión) -->
+        <IconLoader2 v-if="isFetching && !loading" class="size-4 text-muted-foreground animate-spin" />
 
         <!-- Instant + Reload SIEMPRE primero cuando infoPosition === 'none' -->
         <InfoToolbar
