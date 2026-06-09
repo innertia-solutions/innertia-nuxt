@@ -23,10 +23,14 @@ const props = defineProps({
 
   // Column visibility — map { [colKey]: boolean }. Si null, todas visibles.
   columnVisibility: { type: Object, default: null },
+
+  // Resalta la fila cuyo id coincide (selección externa via @row-click).
+  selectedId: { type: [String, Number], default: null },
 })
 
 const emit = defineEmits(['toggle', 'row-click', 'check'])
 
+const isSelected = computed(() => props.selectedId != null && props.node.id === props.selectedId)
 const isExpanded   = computed(() => props.expanded.has(props.node.id))
 const isLoading    = computed(() => props.loadingSet.has(props.node.id))
 const hasChildren  = computed(() => !!props.node.has_children)
@@ -79,7 +83,7 @@ const indentPx = computed(() => props.depth * 20)
       class="bg-card hover:bg-layer-hover transition-colors"
       :class="[
         clickableRows ? 'cursor-pointer' : '',
-        isChecked ? 'bg-primary/5' : '',
+        isSelected ? 'bg-primary/10 hover:bg-primary/10' : (isChecked ? 'bg-primary/5' : ''),
       ]"
       @click="onRowClick"
     >
@@ -154,6 +158,7 @@ const indentPx = computed(() => props.depth * 20)
         :checked-set="checkedSet"
         :indeterminate-set="indeterminateSet"
         :column-visibility="columnVisibility"
+        :selected-id="selectedId"
         @toggle="(n) => emit('toggle', n)"
         @row-click="(n) => emit('row-click', n)"
         @check="(n) => emit('check', n)"
@@ -171,7 +176,7 @@ const indentPx = computed(() => props.depth * 20)
       class="group flex items-center gap-1.5 px-2 py-1 rounded-control hover:bg-muted-hover transition-colors"
       :class="[
         clickableRows ? 'cursor-pointer' : '',
-        isChecked ? 'bg-primary/5' : '',
+        isSelected ? 'bg-primary/10 hover:bg-primary/10' : (isChecked ? 'bg-primary/5' : ''),
       ]"
       :style="{ paddingLeft: (indentPx + 8) + 'px' }"
       @click="onRowClick"
@@ -245,6 +250,7 @@ const indentPx = computed(() => props.depth * 20)
         :checked-set="checkedSet"
         :indeterminate-set="indeterminateSet"
         :column-visibility="columnVisibility"
+        :selected-id="selectedId"
         @toggle="(n) => emit('toggle', n)"
         @row-click="(n) => emit('row-click', n)"
         @check="(n) => emit('check', n)"

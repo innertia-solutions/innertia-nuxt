@@ -75,6 +75,9 @@ const props = defineProps({
   autoClosePreview:  { type: Boolean, default: true },
   /** Porcentaje inicial de la tabla (0-100). El resto lo ocupa el preview. */
   splitRatio:        { type: Number, default: 55 },
+
+  // Resalta la fila seleccionada (id del nodo). Para selección externa via @row-click.
+  selectedId:        { type: [String, Number], default: null },
 })
 
 const sizeStyle = computed(() => {
@@ -861,6 +864,7 @@ defineExpose({
               :checked-set="checkedSet"
               :indeterminate-set="indeterminateSet"
               :column-visibility="columnVisibility"
+              :selected-id="selectedId"
               @toggle="toggle"
               @check="toggleCheck"
               @row-click="handleRowClick"
@@ -904,6 +908,7 @@ defineExpose({
               :checked-set="checkedSet"
               :indeterminate-set="indeterminateSet"
               :column-visibility="columnVisibility"
+              :selected-id="selectedId"
               @toggle="toggle"
               @check="toggleCheck"
               @row-click="handleRowClick"
