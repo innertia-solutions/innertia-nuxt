@@ -338,6 +338,9 @@ watch(search, () => {
   searchTimer = setTimeout(() => fetchInitial(), 250)
 })
 
+// Refetch cuando cambian los params externos (p.ej. filtros del consumer).
+watch(() => props.params, () => fetchInitial(), { deep: true })
+
 // ─── Filters ──────────────────────────────────────────────────────────────────
 const showFilterPanel = ref(false)
 const filterAddBtnRef = ref(null)
