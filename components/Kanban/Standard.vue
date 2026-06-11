@@ -63,6 +63,12 @@ const props = defineProps({
   showReloadButton: { type: Boolean, default: true },
   showAddButton:    { type: Boolean, default: false },
 
+  // Filtros integrados (mismo patrón que Tree.Standard): [{ key, label, filterType, filterOptions }]
+  // Solo en endpoint mode; se envían como lista enriquecida [{field, operator, value}]
+  // (el shape que procesa DataTable en el backend).
+  filters:     { type: Array,   default: () => [] },
+  showFilters: { type: Boolean, default: true },
+
   // Caché en sessionStorage
   cached: { type: Boolean, default: false },
 
@@ -153,6 +159,51 @@ watch(
   { deep: true, immediate: true },
 )
 
+// ─── Filtros (patrón Tree.Standard: "+ Filtros" → popover TableFilter + chips) ─
+const activeFilters   = ref({})
+const showFilterPanel = ref(false)
+const hasFilterableColumns = computed(() => props.filters.length > 0)
+
+const activeFilterList = computed(() =>
+  Object.entries(activeFilters.value)
+    .filter(([, v]) => {
+      if (v === null || v === undefined || v === '') return false
+      if (typeof v === 'object') return v.from || v.to // daterange
+      return true
+    })
+    .map(([key, value]) => {
+      const col = props.filters.find(c => c.key === key)
+      let displayVal = value
+      if (col?.filterType === 'daterange') displayVal = [value.from, value.to].filter(Boolean).join(' — ')
+      else if (col?.filterType === 'select') displayVal = col.filterOptions?.find(o => o.value === value)?.label ?? value
+      return { key, label: col?.label ?? key, displayVal: String(displayVal) }
+    })
+)
+
+// DataTable espera la lista enriquecida [{field, operator, value}].
+const enrichedFilters = computed(() => {
+  const result = []
+  for (const col of props.filters) {
+    const v = activeFilters.value[col.key]
+    if (v === null || v === undefined || v === '') continue
+    if (col.filterType === 'daterange') {
+      if (v.from) result.push({ field: col.key, operator: 'after',  value: v.from })
+      if (v.to)   result.push({ field: col.key, operator: 'before', value: v.to })
+    } else {
+      result.push({ field: col.key, operator: col.filterType === 'select' ? 'is' : 'contains', value: v })
+    }
+  }
+  return result
+})
+
+const updateFilters = (next) => { activeFilters.value = { ...next }; fetchAll() }
+const removeFilter = (key) => {
+  const next = { ...activeFilters.value }
+  delete next[key]
+  activeFilters.value = next
+  fetchAll()
+}
+
 // ─── Fetch (endpoint mode) ───────────────────────────────────────────────────
 const cacheKey = computed(() => {
   if (!props.cached || !props.name) return null
@@ -163,6 +214,7 @@ const buildBody = () => ({
   ...props.params,
   per_page: props.perPage,
   search:   search.value.trim(),
+  ...(enrichedFilters.value.length ? { filters: enrichedFilters.value } : {}),
 })
 
 const fetchAll = async () => {
@@ -195,6 +247,7 @@ const saveToCache = () => {
       meta: meta.value,
       stateVisibility: stateVisibility.value,
       search: search.value,
+      filters: activeFilters.value,
       timestamp: Date.now(),
     }))
   } catch (_) { /* quota exceeded, ignore */ }
@@ -214,6 +267,7 @@ const loadFromCache = () => {
     meta.value = cached.meta ?? null
     stateVisibility.value = cached.stateVisibility ?? stateVisibility.value
     search.value = cached.search ?? ''
+    activeFilters.value = cached.filters ?? {}
     isDataFromCache.value = true
     return true
   } catch { return false }
@@ -367,6 +421,47 @@ defineExpose({ reload: fetchAll, rows })
         <Forms v-model="search" type="text" :placeholder="searchPlaceholder" :icon-right="IconSearch" size="sm" />
       </div>
 
+      <!-- + Filtros (solo endpoint mode) -->
+      <div v-if="showFilters && hasFilterableColumns && !isItemsMode" class="relative">
+        <button
+          type="button"
+          @click="showFilterPanel = !showFilterPanel"
+          :class="[
+            'inline-flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium rounded-control border transition-colors',
+            activeFilterList.length
+              ? 'border-primary/40 bg-primary/10 text-primary'
+              : 'border-card-line bg-card text-muted-foreground-1 hover:bg-muted-hover',
+          ]"
+        >
+          <IconPlus class="size-3.5" />
+          Filtros{{ activeFilterList.length ? ` (${activeFilterList.length})` : '' }}
+        </button>
+
+        <Transition
+          enter-active-class="transition ease-out duration-150"
+          enter-from-class="opacity-0 -translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition ease-in duration-100"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-if="showFilterPanel"
+            class="absolute left-0 top-full mt-1 z-30 w-80 bg-card border border-card-line rounded-popover shadow-xl p-4"
+            @click.stop
+          >
+            <TableFilter :model-value="activeFilters" :columns="filters" @update:model-value="updateFilters" />
+            <div class="flex justify-end gap-2 mt-3">
+              <button
+                type="button"
+                @click="showFilterPanel = false"
+                class="text-xs text-muted-foreground hover:text-foreground"
+              >Cerrar</button>
+            </div>
+          </div>
+        </Transition>
+      </div>
+
       <!-- + Nuevo -->
       <button
         v-if="showAddButton"
@@ -432,6 +527,25 @@ defineExpose({ reload: fetchAll, rows })
             </label>
           </div>
         </Transition>
+      </div>
+    </div>
+
+    <!-- ── Filter chips ───────────────────────────────────────────────── -->
+    <div v-if="activeFilterList.length" class="flex flex-wrap items-center gap-1.5 mb-2">
+      <div
+        v-for="chip in activeFilterList"
+        :key="chip.key"
+        class="inline-flex items-center text-xs rounded-control border border-card-line bg-card overflow-hidden"
+      >
+        <span class="px-2.5 py-1 text-foreground font-medium border-r border-card-line bg-surface">{{ chip.label }}</span>
+        <span class="px-2 py-1 text-primary font-medium">{{ chip.displayVal }}</span>
+        <button
+          type="button"
+          @click.stop="removeFilter(chip.key)"
+          class="px-1.5 py-1 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+        >
+          <IconX class="size-3" />
+        </button>
       </div>
     </div>
 
