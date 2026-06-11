@@ -203,6 +203,9 @@ const fetchInitial = async () => {
     roots.value = res?.data ?? []
     meta.value  = res?.meta ?? null
     childrenById.value = {}
+    // Colapsar todo: sin esto, un nodo expandido antes de cambiar search/params
+    // queda con el chevron abierto pero sin hijos (childrenById se vació).
+    expandedSet.value = new Set()
     if (props.cached) saveToCache()
     emit('loaded', res)
   } catch (e) {
