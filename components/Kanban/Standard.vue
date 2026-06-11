@@ -1,7 +1,7 @@
 <script setup>
 import {
   IconLoader2, IconSearch, IconBolt, IconReload, IconPlus, IconLayoutColumns,
-  IconChevronDown, IconX,
+  IconChevronDown, IconChevronLeft, IconCheck, IconX,
 } from '@tabler/icons-vue'
 import Forms from '../Forms/Input.vue'
 
@@ -159,25 +159,73 @@ watch(
   { deep: true, immediate: true },
 )
 
-// ─── Filtros (patrón Tree.Standard: "+ Filtros" → popover TableFilter + chips) ─
-const activeFilters   = ref({})
-const showFilterPanel = ref(false)
+// ─── Filtros estilo Notion (mismo UI/estado que Table.Standard) ──────────────
+// activeFilters: { [key]: { value, operator } } — daterange: { from, to }
+const activeFilters    = ref({})
+const showFilterPanel  = ref(false)
+const filterMenuStep   = ref('columns') // 'columns' | 'value'
+const pendingCol       = ref(null)
+const pendingValue     = ref(null)
+const pendingDateOp    = ref('before')
+const pendingOperator  = ref('contains')
+const filterMenuRef    = ref(null)
+const filterAddBtnRef  = ref(null)
+const filterMenuStyle  = ref({})
+const pendingValueInputRef = ref(null)
+
 const hasFilterableColumns = computed(() => props.filters.length > 0)
 
+const textOps = [
+  { value: 'contains',    label: 'contiene' },
+  { value: 'starts_with', label: 'empieza con' },
+  { value: 'equals',      label: 'es igual a' },
+]
+const selectOps = [
+  { value: 'is',     label: 'es' },
+  { value: 'is_not', label: 'no es' },
+]
+const dateOps = [
+  { value: 'before',  label: 'antes de' },
+  { value: 'after',   label: 'después de' },
+  { value: 'between', label: 'entre' },
+]
+
 const activeFilterList = computed(() =>
-  Object.entries(activeFilters.value)
-    .filter(([, v]) => {
-      if (v === null || v === undefined || v === '') return false
-      if (typeof v === 'object') return v.from || v.to // daterange
-      return true
+  props.filters
+    .filter(col => {
+      const v = activeFilters.value[col.key]
+      if (!v) return false
+      if (col.filterType === 'daterange') return v?.from || v?.to
+      return v?.value !== null && v?.value !== undefined && v?.value !== ''
     })
-    .map(([key, value]) => {
-      const col = props.filters.find(c => c.key === key)
-      let displayVal = value
-      if (col?.filterType === 'daterange') displayVal = [value.from, value.to].filter(Boolean).join(' — ')
-      else if (col?.filterType === 'select') displayVal = col.filterOptions?.find(o => o.value === value)?.label ?? value
-      return { key, label: col?.label ?? key, displayVal: String(displayVal) }
+    .map(col => {
+      const v = activeFilters.value[col.key]
+      let displayOp = '', displayVal = ''
+      if (col.filterType === 'daterange') {
+        if (v.from && v.to) { displayOp = 'entre'; displayVal = `${v.from} y ${v.to}` }
+        else if (v.from) { displayOp = 'después de'; displayVal = v.from }
+        else { displayOp = 'antes de'; displayVal = v.to }
+      } else if (col.filterType === 'select') {
+        const op = selectOps.find(o => o.value === v.operator) ?? selectOps[0]
+        displayOp = op.label
+        displayVal = col.filterOptions?.find(o => o.value === v.value)?.label ?? v.value
+      } else {
+        const op = textOps.find(o => o.value === v.operator) ?? textOps[0]
+        displayOp = op.label
+        displayVal = v.value
+      }
+      return { key: col.key, label: col.label, displayOp, displayVal, col }
     })
+)
+
+// Columnas sin filtro activo — lo que aparece en el picker.
+const availableFilterColumns = computed(() =>
+  props.filters.filter(col => {
+    const v = activeFilters.value[col.key]
+    if (!v) return true
+    if (col.filterType === 'daterange') return !v.from && !v.to
+    return !v.value
+  })
 )
 
 // DataTable espera la lista enriquecida [{field, operator, value}].
@@ -185,24 +233,110 @@ const enrichedFilters = computed(() => {
   const result = []
   for (const col of props.filters) {
     const v = activeFilters.value[col.key]
-    if (v === null || v === undefined || v === '') continue
+    if (!v) continue
     if (col.filterType === 'daterange') {
+      if (!v.from && !v.to) continue
       if (v.from) result.push({ field: col.key, operator: 'after',  value: v.from })
       if (v.to)   result.push({ field: col.key, operator: 'before', value: v.to })
     } else {
-      result.push({ field: col.key, operator: col.filterType === 'select' ? 'is' : 'contains', value: v })
+      if (!v.value) continue
+      result.push({ field: col.key, operator: v.operator ?? 'contains', value: v.value })
     }
   }
   return result
 })
 
-const updateFilters = (next) => { activeFilters.value = { ...next }; fetchAll() }
 const removeFilter = (key) => {
-  const next = { ...activeFilters.value }
-  delete next[key]
-  activeFilters.value = next
+  const u = { ...activeFilters.value }; delete u[key]; activeFilters.value = u
   fetchAll()
 }
+
+const updateFilterMenuPosition = () => {
+  const rect = filterAddBtnRef.value?.getBoundingClientRect()
+  if (rect) filterMenuStyle.value = { top: rect.bottom + 4 + 'px', left: rect.left + 'px' }
+}
+
+const openFilterMenu = async () => {
+  filterMenuStep.value = 'columns'
+  pendingCol.value = null
+  showFilterPanel.value = true
+  await nextTick()
+  updateFilterMenuPosition()
+}
+
+const toggleFilterMenu = async () => {
+  if (showFilterPanel.value) { closeFilterMenu() } else { await openFilterMenu() }
+}
+
+const closeFilterMenu = () => {
+  showFilterPanel.value = false
+  filterMenuStep.value = 'columns'
+  pendingCol.value = null
+  pendingValue.value = null
+}
+
+const selectFilterColumn = (col) => {
+  pendingCol.value = col
+  const existing = activeFilters.value[col.key]
+  if (col.filterType === 'daterange') {
+    if (existing?.from && existing?.to) { pendingDateOp.value = 'between'; pendingValue.value = { from: existing.from, to: existing.to, singleDate: '' } }
+    else if (existing?.from) { pendingDateOp.value = 'after'; pendingValue.value = { singleDate: existing.from, from: '', to: '' } }
+    else if (existing?.to) { pendingDateOp.value = 'before'; pendingValue.value = { singleDate: existing.to, from: '', to: '' } }
+    else { pendingDateOp.value = 'before'; pendingValue.value = { singleDate: '', from: '', to: '' } }
+  } else {
+    pendingOperator.value = existing?.operator ?? (col.filterType === 'select' ? 'is' : 'contains')
+    pendingValue.value = existing?.value ?? ''
+  }
+  filterMenuStep.value = 'value'
+}
+
+const applyPendingFilter = () => {
+  if (!pendingCol.value) return
+  const col = pendingCol.value
+  let v
+  if (col.filterType === 'daterange') {
+    if (pendingDateOp.value === 'between') v = { from: pendingValue.value.from, to: pendingValue.value.to }
+    else if (pendingDateOp.value === 'after') v = { from: pendingValue.value.singleDate }
+    else v = { to: pendingValue.value.singleDate }
+  } else {
+    v = { value: pendingValue.value, operator: pendingOperator.value }
+  }
+  activeFilters.value = { ...activeFilters.value, [col.key]: v }
+  closeFilterMenu()
+  fetchAll()
+}
+
+const openEditFilter = async (col) => {
+  selectFilterColumn(col)
+  showFilterPanel.value = true
+  await nextTick()
+  updateFilterMenuPosition()
+}
+
+const onFilterMenuOutsideClick = (e) => {
+  if (filterMenuRef.value && !filterMenuRef.value.contains(e.target) &&
+      filterAddBtnRef.value && !filterAddBtnRef.value.contains(e.target)) {
+    closeFilterMenu()
+  }
+}
+watch(showFilterPanel, v => {
+  if (v) {
+    document.addEventListener('mousedown', onFilterMenuOutsideClick)
+    window.addEventListener('scroll', updateFilterMenuPosition, true)
+    window.addEventListener('resize', updateFilterMenuPosition)
+  } else {
+    document.removeEventListener('mousedown', onFilterMenuOutsideClick)
+    window.removeEventListener('scroll', updateFilterMenuPosition, true)
+    window.removeEventListener('resize', updateFilterMenuPosition)
+  }
+})
+
+watch(filterMenuStep, async (step) => {
+  if (step === 'value' && pendingCol.value?.filterType === 'text') {
+    await nextTick()
+    pendingValueInputRef.value?.focus()
+  }
+})
 
 // ─── Fetch (endpoint mode) ───────────────────────────────────────────────────
 const cacheKey = computed(() => {
@@ -422,10 +556,10 @@ defineExpose({ reload: fetchAll, rows })
       </div>
 
       <!-- + Filtros (solo endpoint mode) -->
-      <div v-if="showFilters && hasFilterableColumns && !isItemsMode" class="relative">
+      <div v-if="showFilters && hasFilterableColumns && !isItemsMode" ref="filterAddBtnRef" class="relative">
         <button
           type="button"
-          @click="showFilterPanel = !showFilterPanel"
+          @click="toggleFilterMenu"
           :class="[
             'inline-flex items-center gap-1.5 py-1.5 px-3 text-sm font-medium rounded-control border transition-colors',
             activeFilterList.length
@@ -436,30 +570,6 @@ defineExpose({ reload: fetchAll, rows })
           <IconPlus class="size-3.5" />
           Filtros{{ activeFilterList.length ? ` (${activeFilterList.length})` : '' }}
         </button>
-
-        <Transition
-          enter-active-class="transition ease-out duration-150"
-          enter-from-class="opacity-0 -translate-y-1"
-          enter-to-class="opacity-100 translate-y-0"
-          leave-active-class="transition ease-in duration-100"
-          leave-from-class="opacity-100"
-          leave-to-class="opacity-0"
-        >
-          <div
-            v-if="showFilterPanel"
-            class="absolute left-0 top-full mt-1 z-30 w-80 bg-card border border-card-line rounded-popover shadow-xl p-4"
-            @click.stop
-          >
-            <TableFilter :model-value="activeFilters" :columns="filters" @update:model-value="updateFilters" />
-            <div class="flex justify-end gap-2 mt-3">
-              <button
-                type="button"
-                @click="showFilterPanel = false"
-                class="text-xs text-muted-foreground hover:text-foreground"
-              >Cerrar</button>
-            </div>
-          </div>
-        </Transition>
       </div>
 
       <!-- + Nuevo -->
@@ -530,7 +640,7 @@ defineExpose({ reload: fetchAll, rows })
       </div>
     </div>
 
-    <!-- ── Filter chips ───────────────────────────────────────────────── -->
+    <!-- ── Filter chips (mismo formato que Table.Standard) ─────────────── -->
     <div v-if="activeFilterList.length" class="flex flex-wrap items-center gap-1.5 mb-2">
       <div
         v-for="chip in activeFilterList"
@@ -538,7 +648,15 @@ defineExpose({ reload: fetchAll, rows })
         class="inline-flex items-center text-xs rounded-control border border-card-line bg-card overflow-hidden"
       >
         <span class="px-2.5 py-1 text-foreground font-medium border-r border-card-line bg-surface">{{ chip.label }}</span>
-        <span class="px-2 py-1 text-primary font-medium">{{ chip.displayVal }}</span>
+        <span class="px-2 py-1 text-muted-foreground">{{ chip.displayOp }}</span>
+        <button
+          type="button"
+          @click.stop="openEditFilter(chip.col)"
+          class="inline-flex items-center gap-1 px-2 py-1 text-primary font-medium hover:bg-primary/10 transition-colors border-x border-card-line"
+        >
+          {{ chip.displayVal }}
+          <IconChevronDown class="size-3 opacity-60" />
+        </button>
         <button
           type="button"
           @click.stop="removeFilter(chip.key)"
@@ -671,6 +789,159 @@ defineExpose({ reload: fetchAll, rows })
         </div>
       </div>
     </div>
+
+    <!-- ── Filter menu — teleported (mismo UI two-step que Table.Standard) ── -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition ease-out duration-150"
+        enter-from-class="opacity-0 translate-y-1 scale-95"
+        enter-to-class="opacity-100 translate-y-0 scale-100"
+        leave-active-class="transition ease-in duration-100"
+        leave-from-class="opacity-100 translate-y-0 scale-100"
+        leave-to-class="opacity-0 translate-y-1 scale-95"
+      >
+        <div
+          v-if="showFilterPanel"
+          ref="filterMenuRef"
+          class="fixed z-[60] bg-dropdown border border-dropdown-line rounded-popover shadow-2xl overflow-hidden"
+          :style="filterMenuStyle"
+        >
+
+          <!-- Step 1: column picker -->
+          <template v-if="filterMenuStep === 'columns'">
+            <p class="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-3 pt-3 pb-1.5">
+              Filtrar por
+            </p>
+            <div class="pb-2 min-w-48">
+              <template v-if="availableFilterColumns.length">
+                <button
+                  v-for="col in availableFilterColumns"
+                  :key="col.key"
+                  type="button"
+                  @click.stop="selectFilterColumn(col)"
+                  class="w-full flex items-center justify-between gap-3 px-3 py-2 text-sm text-foreground hover:bg-muted-hover transition-colors text-left group"
+                >
+                  <span>{{ col.label }}</span>
+                  <span class="text-[11px] text-muted-foreground-2 group-hover:text-muted-foreground transition-colors capitalize">
+                    {{ col.filterType === 'daterange' ? 'fecha' : col.filterType === 'select' ? 'opción' : 'texto' }}
+                  </span>
+                </button>
+              </template>
+              <p v-else class="px-3 py-3 text-xs text-muted-foreground italic">
+                Todos los filtros están configurados
+              </p>
+            </div>
+          </template>
+
+          <!-- Step 2: value config -->
+          <template v-else-if="filterMenuStep === 'value' && pendingCol">
+
+            <!-- Header: back + field name + operator selector -->
+            <div class="flex items-center gap-1.5 px-2 py-2 border-b border-dropdown-line">
+              <button
+                type="button"
+                @click.stop="filterMenuStep = 'columns'"
+                class="inline-flex items-center justify-center size-6 rounded-control text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors shrink-0"
+              >
+                <IconChevronLeft class="size-4" />
+              </button>
+              <span class="text-sm font-medium text-foreground">{{ pendingCol.label }}</span>
+
+              <!-- Operator: native select for text -->
+              <select
+                v-if="pendingCol.filterType === 'text'"
+                v-model="pendingOperator"
+                class="ml-auto text-xs bg-dropdown border border-dropdown-line rounded-control px-2 py-1 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer"
+              >
+                <option v-for="op in textOps" :key="op.value" :value="op.value">{{ op.label }}</option>
+              </select>
+
+              <!-- Operator: segmented toggle for select (es / no es) -->
+              <div v-else-if="pendingCol.filterType === 'select'" class="ml-auto flex rounded-control border border-dropdown-line overflow-hidden text-xs">
+                <button
+                  v-for="op in selectOps"
+                  :key="op.value"
+                  type="button"
+                  @click.stop="pendingOperator = op.value"
+                  :class="[
+                    'px-2.5 py-1 transition-colors',
+                    pendingOperator === op.value
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted-hover'
+                  ]"
+                >
+                  {{ op.label }}
+                </button>
+              </div>
+
+              <!-- Operator: inline select for daterange -->
+              <select
+                v-else-if="pendingCol.filterType === 'daterange'"
+                v-model="pendingDateOp"
+                class="ml-auto text-xs bg-dropdown border border-dropdown-line rounded-control px-2 py-1 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer"
+              >
+                <option v-for="op in dateOps" :key="op.value" :value="op.value">{{ op.label }}</option>
+              </select>
+            </div>
+
+            <div class="p-3 min-w-56 space-y-2">
+
+              <!-- ── TEXT ── -->
+              <input
+                v-if="pendingCol.filterType === 'text'"
+                ref="pendingValueInputRef"
+                v-model="pendingValue"
+                type="text"
+                @keydown.enter.stop="applyPendingFilter"
+                @keydown.escape.stop="closeFilterMenu"
+                placeholder="Valor..."
+                class="w-full rounded-control border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary"
+              />
+
+              <!-- ── SELECT ── -->
+              <div v-else-if="pendingCol.filterType === 'select'" class="space-y-0.5 max-h-52 overflow-y-auto -mx-1">
+                <button
+                  v-for="opt in pendingCol.filterOptions"
+                  :key="opt.value"
+                  type="button"
+                  @click.stop="pendingValue = opt.value; applyPendingFilter()"
+                  :class="[
+                    'w-full flex items-center gap-2 px-2.5 py-2 text-sm rounded-control transition-colors text-left',
+                    pendingValue === opt.value
+                      ? 'bg-primary/10 text-primary'
+                      : 'hover:bg-muted-hover text-foreground'
+                  ]"
+                >
+                  <span class="flex-1">{{ opt.label }}</span>
+                  <IconCheck v-if="pendingValue === opt.value" class="size-3.5 shrink-0 text-primary/70" />
+                </button>
+              </div>
+
+              <!-- ── DATERANGE ── -->
+              <template v-else-if="pendingCol.filterType === 'daterange'">
+                <template v-if="pendingDateOp === 'between'">
+                  <input type="date" v-model="pendingValue.from" class="w-full rounded-control border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
+                  <input type="date" v-model="pendingValue.to"   class="w-full rounded-control border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
+                </template>
+                <input v-else type="date" v-model="pendingValue.singleDate" class="w-full rounded-control border border-dropdown-line bg-card text-foreground py-1.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/60" />
+              </template>
+
+              <!-- Apply (not for select — auto-applies on click) -->
+              <button
+                v-if="pendingCol.filterType !== 'select'"
+                type="button"
+                @click.stop="applyPendingFilter"
+                class="w-full py-1.5 text-sm font-medium rounded-control bg-primary text-white hover:bg-primary/90 active:bg-primary/80 transition-colors"
+              >
+                Aplicar
+              </button>
+
+            </div>
+          </template>
+
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- ── Preview compartido (panel overlay + chip flotante + history) ── -->
     <DataPreview
