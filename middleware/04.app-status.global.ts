@@ -1,23 +1,26 @@
 // useAppStore + useInnertiaMode auto-importados.
-// Server-only: en app mode hace fetch de /status (branding + features + demo) y
-// puebla useAppStore. Equivalente app-mode de 02.validate-tenant (saas).
-// Solo activo en mode === 'app'.
+// En app mode hace fetch de /status (branding + features + demo) y puebla
+// useAppStore. Equivalente app-mode de 02.validate-tenant (saas).
+// Corre en server (SSR) o en client (páginas con ssr:false, p.ej. routeRules
+// '/backoffice/**': { ssr: false }) — donde el server nunca pobló el store.
 export default defineNuxtRouteMiddleware(async () => {
   if (!useInnertiaMode().isApp()) return
-  if (!import.meta.server) return
 
   const appStore = useAppStore()
-  if (appStore.branding?.name) return // ya poblado este request
+  if (appStore.branding?.name) return // ya poblado
 
   const config = useRuntimeConfig()
-  const internalUrl = (config as any).apiInternalUrl || 'http://api:80'
+  // Misma resolución dual que useApi: server → red interna; client → proxy público.
+  const base = import.meta.server
+    ? ((config as any).apiInternalUrl || 'http://api:80')
+    : ((config.public as any).apiBaseUrl || '/api')
 
   try {
     const data = await $fetch<{
       ok: boolean
       branding?: { name?: string; demo?: { email: string; password: string } | null }
       features?: Record<string, any>
-    }>(`${internalUrl}/status`, {
+    }>(`${base}/status`, {
       headers: { Accept: 'application/json' },
       timeout: 5000,
     })
