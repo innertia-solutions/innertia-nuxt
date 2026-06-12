@@ -15,6 +15,10 @@ const props = defineProps({
   searchPlaceholder:       { type: String,  default: 'Buscar...' },
   showSearch:              { type: Boolean, default: true },
   showFilters:             { type: Boolean, default: true },
+  // Realtime: canal de broadcast a escuchar; la tabla hace reload() al recibir
+  // cualquiera de los eventos. Sin realtimeEvents se escucha '<canal>.updated'.
+  realtimeChannel:         { type: String, default: null },
+  realtimeEvents:          { type: Array,  default: null },
   showExport:              { type: Boolean, default: true },
   showColumns:             { type: Boolean, default: true },
   /** Mostrar selector "Filas por página" en el footer. Default false. */
@@ -411,10 +415,20 @@ onMounted(() => {
   })
 })
 
+// Realtime opcional: recarga (preservando UI) al recibir eventos del canal.
+const realtime = props.realtimeChannel ? useRealtime() : null
+async function setupRealtime() {
+  if (!realtime) return
+  await realtime.connect()
+  const events = props.realtimeEvents ?? [`${props.realtimeChannel}.updated`]
+  realtime.subscribe(props.realtimeChannel, Object.fromEntries(events.map(e => [e, () => reload()])))
+}
+
 onMounted(async () => {
   previewEnabled.value = !!slots.preview
   window.addEventListener('keydown', onEsc)
   document.addEventListener('mousedown', onDocMousedown)
+  setupRealtime()
 
   // Load column preferences from backend
   if (props.persistPreferences && resolvedName.value) {
@@ -434,6 +448,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onEsc)
   document.removeEventListener('mousedown', onDocMousedown)
+  if (realtime && props.realtimeChannel) realtime.unsubscribe(props.realtimeChannel)
 })
 
 // ─── Column panel ─────────────────────────────────────────────────────────────

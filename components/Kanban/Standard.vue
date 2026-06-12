@@ -69,6 +69,12 @@ const props = defineProps({
   filters:     { type: Array,   default: () => [] },
   showFilters: { type: Boolean, default: true },
 
+  // Realtime (solo endpoint mode): canal de broadcast a escuchar; el board se
+  // recarga al recibir cualquiera de los eventos. Por convención DomainEventKey,
+  // si no se pasan eventos se escucha '<canal>.updated'.
+  realtimeChannel: { type: String, default: null },
+  realtimeEvents:  { type: Array,  default: null },
+
   // Caché en sessionStorage
   cached: { type: Boolean, default: false },
 
@@ -528,10 +534,20 @@ const onDocMousedown = (e) => {
   closePreview()
 }
 
+// ─── Realtime ────────────────────────────────────────────────────────────────
+const realtime = props.realtimeChannel ? useRealtime() : null
+async function setupRealtime() {
+  if (!realtime || isItemsMode.value) return
+  await realtime.connect()
+  const events = props.realtimeEvents ?? [`${props.realtimeChannel}.updated`]
+  realtime.subscribe(props.realtimeChannel, Object.fromEntries(events.map(e => [e, () => fetchAll()])))
+}
+
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 onMounted(() => {
   window.addEventListener('keydown', onEsc)
   document.addEventListener('mousedown', onDocMousedown)
+  setupRealtime()
   if (isItemsMode.value) return   // rows ya cargados por el watcher immediate
   if (loadFromCache()) return
   fetchAll()
@@ -540,6 +556,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onEsc)
   document.removeEventListener('mousedown', onDocMousedown)
+  if (realtime && props.realtimeChannel) realtime.unsubscribe(props.realtimeChannel)
 })
 
 defineExpose({ reload: fetchAll, rows })
