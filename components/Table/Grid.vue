@@ -53,8 +53,9 @@ defineExpose({ reload, clearCache })
       @row-click="emit('row-click', $event)"
       @loaded="emit('loaded', $event)"
     >
-      <!-- Card slot: pass through for custom card rendering -->
-      <template v-if="$slots.card" #card="slotProps">
+      <!-- Card slot: el grid de DataTable expone el slot `grid-item`; exponemos
+           `card` como API pública del wrapper y lo reenviamos a `grid-item`. -->
+      <template v-if="$slots.card" #grid-item="slotProps">
         <slot name="card" v-bind="slotProps" />
       </template>
     </DataTable>
