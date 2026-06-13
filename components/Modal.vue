@@ -101,7 +101,7 @@ onUnmounted(() => {
         @click="onBackdrop"
       >
         <div
-          :class="['bg-card border border-card-line shadow-xl flex flex-col modal-panel max-h-full', panelClass]"
+          :class="['bg-card border border-card-line shadow-xl flex flex-col overflow-hidden modal-panel max-h-full', panelClass]"
           @click.stop
         >
           <!-- Header -->
