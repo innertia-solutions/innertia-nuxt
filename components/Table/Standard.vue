@@ -15,10 +15,11 @@ const props = defineProps({
   searchPlaceholder:       { type: String,  default: 'Buscar...' },
   showSearch:              { type: Boolean, default: true },
   showFilters:             { type: Boolean, default: true },
-  // Realtime: canal de broadcast a escuchar; la tabla hace reload() al recibir
-  // cualquiera de los eventos. Sin realtimeEvents se escucha '<canal>.updated'.
-  realtimeChannel:         { type: String, default: null },
-  realtimeEvents:          { type: Array,  default: null },
+  // Realtime: auto-suscripción a los canales que el backend expone en meta.channels
+  // (`entity.{tabla}.changed` → reload()). realtimeChannel queda como override manual
+  // (legacy, se suma a los del backend); realtime=false apaga la auto-suscripción.
+  realtimeChannel:         { type: String, default: null },   // override manual (legacy)
+  realtime:                { type: Boolean, default: true },   // apagar auto-suscripción
   showExport:              { type: Boolean, default: true },
   showColumns:             { type: Boolean, default: true },
   /** Mostrar selector "Filas por página" en el footer. Default false. */
@@ -382,10 +383,22 @@ const handleRowClick = (row) => {
   previewRow.value = row
 }
 
+// ─── Realtime ────────────────────────────────────────────────────────────────
+// Auto-suscripción a los canales que el backend expone en meta.channels. El
+// override manual (realtimeChannel) se suma a los del backend. realtime=false
+// desactiva la suscripción.
+const tableRealtime = props.realtime ? useTableRealtime(() => reload()) : null
+
+function channelsFrom(meta) {
+  const fromMeta = Array.isArray(meta?.channels) ? meta.channels : []
+  return props.realtimeChannel ? [...new Set([...fromMeta, props.realtimeChannel])] : fromMeta
+}
+
 // Cuando recarga la data, mantener viva la fila previewada (o cerrar si fue eliminada).
 const handleLoaded = (res) => {
   emit('loaded', res)
   if (res?.meta) tableMeta.value = res.meta
+  tableRealtime?.sync(channelsFrom(res?.meta))
   if (previewRow.value && Array.isArray(res?.data)) {
     const fresh = res.data.find(r => r.id === previewRow.value.id)
     if (fresh) previewRow.value = fresh
@@ -415,20 +428,10 @@ onMounted(() => {
   })
 })
 
-// Realtime opcional: recarga (preservando UI) al recibir eventos del canal.
-const realtime = props.realtimeChannel ? useRealtime() : null
-async function setupRealtime() {
-  if (!realtime) return
-  await realtime.connect()
-  const events = props.realtimeEvents ?? [`${props.realtimeChannel}.updated`]
-  realtime.subscribe(props.realtimeChannel, Object.fromEntries(events.map(e => [e, () => reload()])))
-}
-
 onMounted(async () => {
   previewEnabled.value = !!slots.preview
   window.addEventListener('keydown', onEsc)
   document.addEventListener('mousedown', onDocMousedown)
-  setupRealtime()
 
   // Load column preferences from backend
   if (props.persistPreferences && resolvedName.value) {
@@ -448,7 +451,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onEsc)
   document.removeEventListener('mousedown', onDocMousedown)
-  if (realtime && props.realtimeChannel) realtime.unsubscribe(props.realtimeChannel)
+  tableRealtime?.teardown()
 })
 
 // ─── Column panel ─────────────────────────────────────────────────────────────
