@@ -78,6 +78,10 @@ const props = defineProps({
 
   // Resalta la fila seleccionada (id del nodo). Para selección externa via @row-click.
   selectedId:        { type: [String, Number], default: null },
+
+  // Realtime: auto-suscripción a los canales que el backend declara en meta.channels
+  // (`entity.{tabla}.changed` → reload() preservando expansión). realtime=false apaga.
+  realtime:          { type: Boolean, default: true },
 })
 
 const sizeStyle = computed(() => {
@@ -202,6 +206,7 @@ const fetchInitial = async () => {
     const res = await api.post(props.endpoint, buildBody())
     roots.value = res?.data ?? []
     meta.value  = res?.meta ?? null
+    syncRealtime()
     childrenById.value = {}
     // Colapsar todo: sin esto, un nodo expandido antes de cambiar search/params
     // queda con el chevron abierto pero sin hijos (childrenById se vació).
@@ -250,6 +255,15 @@ const reload = async () => {
   } finally {
     isFetching.value = false
   }
+}
+
+// ─── Realtime ─────────────────────────────────────────────────────────────────
+// Auto-suscripción a los canales del backend (meta.channels). Cada `{channel}.changed`
+// dispara reload() (debounced), refrescando datos sin perder la expansión actual.
+const tableRealtime = props.realtime ? useTableRealtime(() => reload()) : null
+function syncRealtime() {
+  if (!tableRealtime) return
+  tableRealtime.sync(Array.isArray(meta.value?.channels) ? meta.value.channels : [])
 }
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
@@ -567,6 +581,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onEsc)
   document.removeEventListener('mousedown', onDocMousedown)
+  tableRealtime?.teardown()
 })
 
 defineExpose({
