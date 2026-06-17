@@ -410,6 +410,7 @@ const loadFromCache = () => {
     search.value = cached.search ?? ''
     activeFilters.value = cached.filters ?? {}
     isDataFromCache.value = true
+    syncRealtime()
     return true
   } catch { return false }
 }

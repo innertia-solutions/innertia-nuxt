@@ -310,6 +310,7 @@ const loadFromCacheOnMount = () => {
     activeFilters.value = cached.filters ?? {}
     columnVisibility.value = cached.columnVisibility ?? columnVisibility.value
     isDataFromCache.value = true
+    syncRealtime()
     return true
   } catch {
     return false
