@@ -69,11 +69,11 @@ const props = defineProps({
   filters:     { type: Array,   default: () => [] },
   showFilters: { type: Boolean, default: true },
 
-  // Realtime (solo endpoint mode): canal de broadcast a escuchar; el board se
-  // recarga al recibir cualquiera de los eventos. Por convención DomainEventKey,
-  // si no se pasan eventos se escucha '<canal>.updated'.
-  realtimeChannel: { type: String, default: null },
-  realtimeEvents:  { type: Array,  default: null },
+  // Realtime (solo endpoint mode): por defecto auto-suscribe a los canales que
+  // el backend declara en meta.channels. `realtimeChannel` es un override legacy
+  // que agrega un canal explícito a la lista.
+  realtime:        { type: Boolean, default: true },
+  realtimeChannel: { type: String,  default: null },
 
   // Caché en sessionStorage
   cached: { type: Boolean, default: false },
@@ -368,6 +368,7 @@ const fetchAll = async () => {
     const res = await api.post(props.endpoint, buildBody())
     rows.value = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
     meta.value = res?.meta ?? null
+    syncRealtime()
     saveToCache()
     emit('loaded', res)
   } catch (e) {
@@ -535,19 +536,20 @@ const onDocMousedown = (e) => {
 }
 
 // ─── Realtime ────────────────────────────────────────────────────────────────
-const realtime = props.realtimeChannel ? useRealtime() : null
-async function setupRealtime() {
-  if (!realtime || isItemsMode.value) return
-  await realtime.connect()
-  const events = props.realtimeEvents ?? [`${props.realtimeChannel}.updated`]
-  realtime.subscribe(props.realtimeChannel, Object.fromEntries(events.map(e => [e, () => fetchAll()])))
+// Auto-suscribe a los canales que el backend declara en meta.channels (más el
+// override legacy `realtimeChannel`, si se pasa). Solo en endpoint mode.
+const tableRealtime = (props.realtime && !isItemsMode.value) ? useTableRealtime(() => fetchAll()) : null
+function syncRealtime() {
+  if (!tableRealtime) return
+  const fromMeta = Array.isArray(meta.value?.channels) ? meta.value.channels : []
+  const channels = props.realtimeChannel ? [...new Set([...fromMeta, props.realtimeChannel])] : fromMeta
+  tableRealtime.sync(channels)
 }
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 onMounted(() => {
   window.addEventListener('keydown', onEsc)
   document.addEventListener('mousedown', onDocMousedown)
-  setupRealtime()
   if (isItemsMode.value) return   // rows ya cargados por el watcher immediate
   if (loadFromCache()) return
   fetchAll()
@@ -556,7 +558,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onEsc)
   document.removeEventListener('mousedown', onDocMousedown)
-  if (realtime && props.realtimeChannel) realtime.unsubscribe(props.realtimeChannel)
+  tableRealtime?.teardown()
 })
 
 defineExpose({ reload: fetchAll, rows })
