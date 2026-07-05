@@ -488,12 +488,22 @@ const onDrop = async (targetState) => {
 
   // Modo reorden (prop seteada): calcula vecinos y persiste posición.
   if (props.reorderEndpoint) {
-    const colList = (columnRows.value[targetState] ?? []).filter(r => r.id !== id)
-    const idx = dropIndex == null ? colList.length : Math.min(dropIndex, colList.length)
+    const rendered = columnRows.value[targetState] ?? []
+    const dragIdxInRendered = rendered.findIndex(r => r.id === id)
+    // dropIndex viene en espacio renderizado (incluye la tarjeta arrastrada en
+    // reorden misma-columna). Al filtrarla, los índices por debajo se corren -1.
+    let effectiveDrop = dropIndex
+    if (dragIdxInRendered >= 0 && dropIndex != null && dropIndex > dragIdxInRendered) {
+      effectiveDrop = dropIndex - 1
+    }
+
+    // No-op: soltar en el propio slot (misma columna, misma posición).
+    if (fromState === targetState && effectiveDrop === dragIdxInRendered) return
+
+    const colList = rendered.filter(r => r.id !== id)
+    const idx = effectiveDrop == null ? colList.length : Math.min(effectiveDrop, colList.length)
     const beforeId = idx > 0 ? colList[idx - 1].id : null            // tarjeta arriba
     const afterId  = idx < colList.length ? colList[idx].id : null   // tarjeta abajo
-
-    if (fromState === targetState && beforeId == null && afterId == null) return
 
     const snapshot = rows.value.map(r => ({ ...r }))
     const ridx = rows.value.findIndex(r => r.id === id)
@@ -509,7 +519,13 @@ const onDrop = async (targetState) => {
     emit('move', { id, from: fromState, to: targetState })
 
     try {
-      await api.post(props.reorderEndpoint, { id, column: targetState, before_id: beforeId, after_id: afterId })
+      const res = await api.post(props.reorderEndpoint, { id, column: targetState, before_id: beforeId, after_id: afterId })
+      // Reconciliar con la posición canónica del server (por si rebalanceó).
+      const saved = res?.data ?? res
+      if (saved && saved.position != null) {
+        const r = rows.value.findIndex(x => x.id === id)
+        if (r >= 0) rows.value[r] = { ...rows.value[r], position: saved.position, [props.stateKey]: saved[props.stateKey] ?? targetState }
+      }
     } catch (e) {
       rows.value = snapshot
     }
