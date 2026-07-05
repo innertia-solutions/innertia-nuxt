@@ -111,9 +111,10 @@ const handleChange = (e: Event) => {
           @change="handleChange"
           data-hs-select='{
             "placeholder": "Seleccionar...",
+            "dropdownScope": "window",
             "toggleTag": "<button type=\"button\" aria-expanded=\"false\"></button>",
-            "toggleClasses": "innertia-field hs-select-disabled:pointer-events-none hs-select-disabled:opacity-50 aria-expanded:!rounded-b-none aria-expanded:!border-b-transparent relative pe-9 flex gap-x-2 items-center text-nowrap cursor-pointer text-start",
-            "dropdownClasses": "-mt-px z-50 w-full max-h-72 py-1 bg-[color:var(--field-dropdown-bg)] border border-[color:var(--field-border)] rounded-b-control overflow-hidden overflow-y-auto shadow-lg",
+            "toggleClasses": "innertia-field hs-select-disabled:pointer-events-none hs-select-disabled:opacity-50 relative pe-9 flex gap-x-2 items-center text-nowrap cursor-pointer text-start",
+            "dropdownClasses": "z-[10000] w-full max-h-72 py-1 bg-[color:var(--field-dropdown-bg)] border border-[color:var(--field-border)] rounded-control overflow-hidden overflow-y-auto shadow-lg",
             "optionClasses": "py-2 px-3 w-full text-sm text-foreground cursor-pointer bg-transparent hover:bg-muted-hover focus:outline-hidden focus:bg-muted-hover",
             "optionTemplate": "<div class=\"flex justify-between items-center w-full\"><span data-title></span><span class=\"hidden hs-selected:block\"><svg class=\"shrink-0 size-3.5 text-blue-600 dark:text-blue-500\" xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"20 6 9 17 4 12\"/></svg></span></div>"
           }'
@@ -141,24 +142,10 @@ const handleChange = (e: Event) => {
 
 <style>
 /*
- * Preline HSSelect: cuando el dropdown está abierto, el trigger pierde
- * sus esquinas inferiores y el borde inferior se vuelve invisible para
- * fusionarse visualmente con el dropdown panel.
- *
- * Estilos globales (sin scoped) porque el HSSelect inyecta DOM fuera
- * del componente Vue (button generado, no del template).
+ * Con `dropdownScope:'window'` Preline teletransporta el panel del dropdown al
+ * <body> y lo posiciona con floating-ui (fixed + offset). Así escapa el overflow
+ * de cualquier contenedor con scroll (modales, paneles, etc.) y flota por encima.
+ * El trigger conserva sus bordes/esquinas completos porque el panel ya no se
+ * "fusiona" con él — flota separado.
  */
-.hs-select [aria-expanded="true"].innertia-field {
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-bottom-color: transparent !important;
-}
-
-/* Pegar el dropdown al trigger eliminando cualquier offset/margen que
- * Preline pueda inyectar. Target amplio: cualquier div con la clase
- * `rounded-b-control` dentro del wrapper `.hs-select`. */
-.hs-select div[class*="rounded-b-control"] {
-  top: 100% !important;
-  margin-top: -1px !important;
-}
 </style>

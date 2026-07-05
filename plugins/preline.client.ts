@@ -3,6 +3,7 @@ declare global {
     HSStaticMethods?: { autoInit?: () => void }
     HSSelect?: new (el: HTMLElement) => { destroy?: () => void }
     HSThemeAppearance?: { init?: () => void }
+    FloatingUIDOM?: unknown
   }
 }
 
@@ -10,6 +11,13 @@ export default defineNuxtPlugin(async () => {
   if (!process.client) return
 
   try {
+    // Preline 3 lee `window.FloatingUIDOM` (global, no import) para posicionar
+    // dropdowns con `dropdownScope:'window'` (los teletransporta al body y flota
+    // con floating-ui, escapando cualquier overflow — ej. selects dentro de modales).
+    if (!window.FloatingUIDOM) {
+      window.FloatingUIDOM = await import('@floating-ui/dom')
+    }
+
     await import('preline')
 
     const initPreline = () => {

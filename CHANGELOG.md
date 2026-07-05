@@ -6,6 +6,10 @@ All notable changes to `@innertia-solutions/innertia-nuxt` are documented here.
 
 ### Fixed
 
+- `Forms.Select`: el dropdown ahora usa `dropdownScope:'window'` (Preline lo teletransporta al `<body>` y lo posiciona con floating-ui). Deja de recortarse dentro de contenedores con scroll —modales, paneles— y flota por encima (`z-[10000]`). Se expone `window.FloatingUIDOM` en el plugin de Preline y se agrega `@floating-ui/dom` como dependencia.
+
+### Fixed
+
 - `Kanban.Standard`: en modo `bordered=false`, el `ring` de highlight al arrastrar sobre una columna se recortaba por arriba (el contenedor `overflow-x-auto` sin padding clippeaba los 2px del ring). Se agrega `p-1` al scroll container en ese modo.
 
 ### BREAKING CHANGES
