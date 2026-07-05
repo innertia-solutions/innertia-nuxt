@@ -56,6 +56,9 @@ const props = defineProps({
   states:    { type: Array,  required: true },
   moveMutation: { type: Function, default: null },
 
+  // Endpoint para persistir reorden (POST). Si null → solo cross-column, sin placeholder.
+  reorderEndpoint: { type: String, default: null },
+
   // Toolbar visibility
   showSearch:       { type: Boolean, default: true },
   searchPlaceholder:{ type: String,  default: 'Buscar...' },
@@ -355,6 +358,7 @@ const buildBody = () => ({
   per_page: props.perPage,
   search:   search.value.trim(),
   ...(enrichedFilters.value.length ? { filters: enrichedFilters.value } : {}),
+  ...(props.reorderEndpoint ? { board: true } : {}),
 })
 
 const fetchAll = async () => {
@@ -433,6 +437,11 @@ const columnRows = computed(() => {
     const state = row[props.stateKey]
     if (map[state]) map[state].push(row)
   }
+  if (props.reorderEndpoint) {
+    for (const k of Object.keys(map)) {
+      map[k].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    }
+  }
   return map
 })
 
@@ -442,21 +451,73 @@ const totalRendered = computed(() => rows.value.length)
 const draggedId      = ref(null)
 const draggedFrom    = ref(null)
 const dragOverState  = ref(null)
+const dragOverIndex  = ref(null) // índice de inserción (placeholder) en la columna dragOverState
 
 const onDragStart = (row, state) => {
   draggedId.value = row.id
   draggedFrom.value = state
 }
-const onDragOver  = (e, state) => { e.preventDefault(); dragOverState.value = state }
-const onDragLeave = () => { dragOverState.value = null }
+const onDragOver = (e, state) => {
+  e.preventDefault()
+  dragOverState.value = state
+  if (!props.reorderEndpoint) return
+  if (dragOverIndex.value === null) dragOverIndex.value = columnRows.value[state]?.length ?? 0
+}
+const onDragLeave = () => { dragOverState.value = null; dragOverIndex.value = null }
+
+// Llamado desde cada tarjeta: calcula si el cursor está en la mitad superior o inferior.
+const onCardDragOver = (e, state, index) => {
+  if (!props.reorderEndpoint) return
+  e.preventDefault()
+  e.stopPropagation()
+  dragOverState.value = state
+  const rect = e.currentTarget.getBoundingClientRect()
+  const after = (e.clientY - rect.top) > rect.height / 2
+  dragOverIndex.value = after ? index + 1 : index
+}
 
 const onDrop = async (targetState) => {
-  dragOverState.value = null
   const id        = draggedId.value
   const fromState = draggedFrom.value
-  draggedId.value   = null
+  const dropIndex = dragOverIndex.value
+  dragOverState.value = null
+  dragOverIndex.value = null
+  draggedId.value = null
   draggedFrom.value = null
-  if (!id || fromState === targetState) return
+  if (!id) return
+
+  // Modo reorden (prop seteada): calcula vecinos y persiste posición.
+  if (props.reorderEndpoint) {
+    const colList = (columnRows.value[targetState] ?? []).filter(r => r.id !== id)
+    const idx = dropIndex == null ? colList.length : Math.min(dropIndex, colList.length)
+    const beforeId = idx > 0 ? colList[idx - 1].id : null            // tarjeta arriba
+    const afterId  = idx < colList.length ? colList[idx].id : null   // tarjeta abajo
+
+    if (fromState === targetState && beforeId == null && afterId == null) return
+
+    const snapshot = rows.value.map(r => ({ ...r }))
+    const ridx = rows.value.findIndex(r => r.id === id)
+    if (ridx >= 0) {
+      const before = beforeId ? rows.value.find(r => r.id === beforeId) : null
+      const after  = afterId  ? rows.value.find(r => r.id === afterId)  : null
+      const newPos = before && after ? (before.position + after.position) / 2
+        : before ? before.position + 1
+        : after ? after.position - 1
+        : 1
+      rows.value[ridx] = { ...rows.value[ridx], [props.stateKey]: targetState, position: newPos }
+    }
+    emit('move', { id, from: fromState, to: targetState })
+
+    try {
+      await api.post(props.reorderEndpoint, { id, column: targetState, before_id: beforeId, after_id: afterId })
+    } catch (e) {
+      rows.value = snapshot
+    }
+    return
+  }
+
+  // Modo legacy (sin reorderEndpoint): solo cross-column, comportamiento actual.
+  if (fromState === targetState) return
 
   // Optimistic update local (solo en endpoint mode).
   // En items mode el optimistic lo gestiona el moveMutation externo
@@ -747,25 +808,34 @@ defineExpose({ reload: fetchAll, rows })
                 bordered ? 'bg-muted/40' : '',
               ]"
             >
+              <template v-for="(row, ci) in columnRows[state.key]" :key="row.id">
+                <div
+                  v-if="reorderEndpoint && dragOverState === state.key && dragOverIndex === ci"
+                  class="rounded-card border-2 border-dashed border-primary/50 bg-primary/5 h-10"
+                />
+                <div
+                  draggable="true"
+                  @dragstart="onDragStart(row, state.key)"
+                  @dragover="onCardDragOver($event, state.key, ci)"
+                  @click="handleCardClick(row)"
+                  class="bg-card border border-card-line rounded-card p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-sm transition-all select-none"
+                  :class="[
+                    draggedId === row.id ? 'opacity-40' : '',
+                    previewRow?.id === row.id ? 'ring-2 ring-primary/30' : '',
+                  ]"
+                >
+                  <slot name="card" :row="row" :state="state">
+                    <div class="space-y-1">
+                      <p class="text-sm font-medium text-foreground truncate">{{ row.name ?? row.title ?? row.id }}</p>
+                      <p v-if="row.description" class="text-xs text-muted-foreground line-clamp-2">{{ row.description }}</p>
+                    </div>
+                  </slot>
+                </div>
+              </template>
               <div
-                v-for="row in columnRows[state.key]"
-                :key="row.id"
-                draggable="true"
-                @dragstart="onDragStart(row, state.key)"
-                @click="handleCardClick(row)"
-                class="bg-card border border-card-line rounded-card p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-sm transition-all select-none"
-                :class="[
-                  draggedId === row.id ? 'opacity-40' : '',
-                  previewRow?.id === row.id ? 'ring-2 ring-primary/30' : '',
-                ]"
-              >
-                <slot name="card" :row="row" :state="state">
-                  <div class="space-y-1">
-                    <p class="text-sm font-medium text-foreground truncate">{{ row.name ?? row.title ?? row.id }}</p>
-                    <p v-if="row.description" class="text-xs text-muted-foreground line-clamp-2">{{ row.description }}</p>
-                  </div>
-                </slot>
-              </div>
+                v-if="reorderEndpoint && dragOverState === state.key && dragOverIndex === (columnRows[state.key]?.length ?? 0) && columnRows[state.key]?.length"
+                class="rounded-card border-2 border-dashed border-primary/50 bg-primary/5 h-10"
+              />
 
               <div
                 v-if="!columnRows[state.key]?.length"
