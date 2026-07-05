@@ -4,6 +4,10 @@ All notable changes to `@innertia-solutions/innertia-nuxt` are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- `Kanban.Standard`: en modo `bordered=false`, el `ring` de highlight al arrastrar sobre una columna se recortaba por arriba (el contenedor `overflow-x-auto` sin padding clippeaba los 2px del ring). Se agrega `p-1` al scroll container en ese modo.
+
 ### BREAKING CHANGES
 
 #### apps → contexts rename

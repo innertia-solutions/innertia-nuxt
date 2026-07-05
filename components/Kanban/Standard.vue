@@ -695,7 +695,7 @@ defineExpose({ reload: fetchAll, rows })
       ]"
     >
       <div
-        :class="['overflow-x-auto', bordered ? 'p-3' : '']"
+        :class="['overflow-x-auto', bordered ? 'p-3' : 'p-1']"
         :style="sizeStyle"
       >
         <div v-if="loading && !rows.length" class="flex items-center justify-center py-16 gap-2 text-muted-foreground">
