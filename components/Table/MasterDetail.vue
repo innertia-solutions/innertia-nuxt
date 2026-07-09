@@ -27,6 +27,10 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   emptyText: { type: String, default: 'Selecciona un elemento para ver su detalle.' },
   selectedId: { type: [String, Number], default: null },
+  /** Alto del contenedor (CSS). Ajústalo para que la página quepa sin scroll. */
+  height: { type: String, default: 'calc(100dvh - 13rem)' },
+  /** Auto-refresco por realtime (se suscribe a los meta.channels del backend). */
+  realtime: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['select'])
@@ -50,7 +54,7 @@ watch(search, (v) => {
 })
 
 const queryKey = computed(() => [props.name, 'md', debouncedSearch.value, props.params])
-const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
+const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } = useInfiniteQuery({
   queryKey,
   queryFn: ({ pageParam = 1 }) => api.get(props.endpoint, {
     params: { search: debouncedSearch.value, page: pageParam, perPage: props.perPage, ...props.params },
@@ -63,6 +67,17 @@ const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useI
   initialPageParam: 1,
 })
 const rows = computed(() => data.value?.pages.flatMap(p => p?.data ?? (Array.isArray(p) ? p : [])) ?? [])
+
+// Realtime: se suscribe a los canales que anuncia el backend en meta.channels
+// (entity.{tabla}[.{tenant}]) y refetchea la lista al recibir {canal}.changed.
+const rt = props.realtime ? useTableRealtime(() => refetch()) : null
+watch(data, () => {
+  if (!rt) return
+  const pages = data.value?.pages ?? []
+  const meta = pages[pages.length - 1]?.meta ?? pages[0]?.meta
+  rt.sync(meta?.channels ?? [])
+}, { immediate: true })
+onBeforeUnmount(() => rt?.teardown())
 
 let observer = null
 onMounted(() => {
@@ -83,7 +98,7 @@ function pick(row) {
 </script>
 
 <template>
-  <div class="flex rounded-card border border-card-line overflow-hidden bg-card h-[calc(100dvh-13rem)] min-h-[520px]">
+  <div class="flex rounded-card border border-card-line overflow-hidden bg-card min-h-[360px]" :style="{ height }">
     <!-- ── Lista ── -->
     <aside class="w-80 shrink-0 border-e border-card-line flex flex-col">
       <div v-if="title || $slots.action" class="p-3 flex items-center justify-between gap-2 border-b border-card-line">
