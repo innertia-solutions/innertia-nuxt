@@ -149,7 +149,7 @@ export default defineAppConfig({
 // ─── Tipos públicos ──────────────────────────────────────────────────────────
 // Re-exportados desde acá para que cualquier composable / componente los importe.
 
-export type InnertiaMode = 'saas' | 'app'
+export type InnertiaMode = 'saas' | 'app' | 'open'
 
 export type ContextMobileMode = 'allow' | 'block' | 'redirect'
 
