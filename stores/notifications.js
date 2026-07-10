@@ -18,6 +18,7 @@ export const useNotificationsStore = defineStore('notifications', {
       const now = new Date().toISOString()
       this.notifications.forEach(n => { if (!n.read_at) n.read_at = now })
     },
+    remove(id) { this.notifications = this.notifications.filter(n => n.id !== id) },
     clear() { this.notifications = [] },
   },
   persist: false,

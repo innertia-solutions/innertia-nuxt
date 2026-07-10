@@ -1,22 +1,37 @@
+/**
+ * Centro de notificaciones del usuario. Habla con los endpoints del notification
+ * center de innertia-laravel (prefijo `notifications`, montado con
+ * \Innertia\Saas\Notifications::routes()):
+ *   GET    notifications            ?all=1&page=N  → {data,total,unread,current_page,last_page}
+ *   PATCH  notifications/{id}/read
+ *   PATCH  notifications/read-all
+ *   DELETE notifications/{id}
+ *   DELETE notifications                            (borra las leídas)
+ */
 export function useNotifications() {
   const api = useApi()
   const store = useNotificationsStore()
 
   async function fetchNotifications(params = {}) {
-    const data = await api.get('auth/me/notifications', { params })
-    store.setNotifications(data?.data ?? data ?? [])
-    return data
+    const res = await api.get('notifications', { params })
+    store.setNotifications(res?.data ?? [])
+    return res
   }
 
   async function markAsRead(id) {
-    await api.put(`auth/me/notifications/${id}/read`)
+    await api.patch(`notifications/${id}/read`)
     store.markRead(id)
   }
 
   async function markAllAsRead() {
-    await api.put('auth/me/notifications/read-all')
+    await api.patch('notifications/read-all')
     store.markAllRead()
   }
 
-  return { fetchNotifications, markAsRead, markAllAsRead }
+  async function remove(id) {
+    await api.delete(`notifications/${id}`)
+    store.remove(id)
+  }
+
+  return { fetchNotifications, markAsRead, markAllAsRead, remove }
 }
