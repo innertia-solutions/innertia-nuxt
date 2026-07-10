@@ -2,8 +2,8 @@
 // Server-only: lee el hostname de la request para extraer el subdomain del tenant.
 // Solo activo en mode === 'saas'.
 export default defineNuxtRouteMiddleware((to) => {
-  // Modo no-saas → no hay tenant que detectar
-  if (!useInnertiaMode().hasTenant()) return
+  // Solo saas resuelve el tenant por subdominio (open lo hace por selección in-app)
+  if (!useInnertiaMode().isSaas()) return
 
   // Evitar loop infinito: si ya estamos en la página de error de tenant, no redirigir de nuevo.
   if (to.path === '/tenant-error') return

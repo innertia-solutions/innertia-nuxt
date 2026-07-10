@@ -3,8 +3,8 @@
 // Usa la URL interna del backend (apiInternalUrl) para evitar pasar por el proxy de Nitro.
 // Solo activo en mode === 'saas'.
 export default defineNuxtRouteMiddleware(async (to) => {
-  // Modo no-saas → no hay tenant que validar
-  if (!useInnertiaMode().hasTenant()) return
+  // Solo saas valida el tenant por subdominio (open lo hace por selección in-app)
+  if (!useInnertiaMode().isSaas()) return
 
   if (!import.meta.server) return
 
