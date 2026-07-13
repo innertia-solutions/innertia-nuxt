@@ -30,7 +30,8 @@ const items = computed(() => tab.value === 'unread'
   ? store.notifications.filter(n => !n.read_at)
   : store.notifications)
 
-const badge = computed(() => serverUnread.value > 9 ? '9+' : String(serverUnread.value))
+const liveUnread = computed(() => Math.max(serverUnread.value, store.unreadCount))
+const badge = computed(() => liveUnread.value > 9 ? '9+' : String(liveUnread.value))
 
 async function load() {
   loading.value = true
