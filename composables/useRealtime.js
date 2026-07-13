@@ -53,6 +53,29 @@ export function useRealtime() {
       options.wssPort = pusherWsPort ? Number(pusherWsPort) : 443
     }
 
+    // Authorizer para canales private-*: postea al /broadcasting/auth del backend
+    // con headers frescos (Bearer + X-Tenant) reconstruidos en cada intento.
+    const apiBase = config.public.apiBaseUrl || '/api'
+    options.channelAuthorization = {
+      transport: 'ajax',
+      endpoint: `${apiBase}/broadcasting/auth`,
+      // Handler propio: reconstruye headers (token/X-Tenant) en cada auth.
+      customHandler: async ({ socketId, channelName }, callback) => {
+        try {
+          const headers = {}
+          run(headers)
+          const res = await $fetch(`${apiBase}/broadcasting/auth`, {
+            method: 'POST',
+            headers,
+            body: { socket_id: socketId, channel_name: channelName },
+          })
+          callback(null, res)
+        } catch (err) {
+          callback(err, null)
+        }
+      },
+    }
+
     pusher.value = new Pusher(pusherAppKey, options)
 
     pusher.value.connection.bind('connected', () => {
