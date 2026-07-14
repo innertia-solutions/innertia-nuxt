@@ -7,7 +7,7 @@ import { defineStore } from 'pinia'
  * gyms: [{ key, name, status, contexts }]
  */
 export const useGymStore = defineStore('gym', {
-  state: () => ({ activeKey: null, gyms: [] }),
+  state: () => ({ activeKey: null, activeContext: null, gyms: [] }),
 
   getters: {
     active: (s) => s.gyms.find((g) => g.key === s.activeKey) || null,
@@ -17,11 +17,13 @@ export const useGymStore = defineStore('gym', {
   actions: {
     setGyms(gyms) { this.gyms = gyms || [] },
     setActive(key) { this.activeKey = key },
-    reset() { this.activeKey = null; this.gyms = [] },
+    // Contexto elegido (backoffice/student/…) — un gym puede otorgar varios.
+    setActiveContext(context) { this.activeContext = context },
+    reset() { this.activeKey = null; this.activeContext = null; this.gyms = [] },
   },
 
   persist: {
-    // Solo la key activa sobrevive el refresh; la lista se recarga del backend
-    pick: ['activeKey'],
+    // Key + contexto activos sobreviven el refresh; la lista se recarga del backend.
+    pick: ['activeKey', 'activeContext'],
   },
 })
