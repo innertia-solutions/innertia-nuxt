@@ -1,5 +1,5 @@
 <script setup>
-import { IconSearch, IconLoader2 } from '@tabler/icons-vue'
+import { IconSearch, IconLoader2, IconDownload } from '@tabler/icons-vue'
 import { useInfiniteQuery } from '@tanstack/vue-query'
 
 /*
@@ -31,6 +31,12 @@ const props = defineProps({
   height: { type: String, default: 'calc(100dvh - 13rem)' },
   /** Auto-refresco por realtime (se suscribe a los meta.channels del backend). */
   realtime: { type: Boolean, default: true },
+  /** Cachea la lista (opt-in, TTL 10min) — misma estrategia que Table.Standard/DataTable. */
+  cached: { type: Boolean, default: false },
+  /** Muestra el botón "Exportar" (xlsx) en el header de la lista. */
+  exportable: { type: Boolean, default: true },
+  /** Formato de export (por ahora solo 'xlsx'). */
+  exportFormat: { type: String, default: 'xlsx' },
 })
 
 const emit = defineEmits(['select'])
@@ -53,6 +59,42 @@ watch(search, (v) => {
   searchTimeout = setTimeout(() => { debouncedSearch.value = v }, 400)
 })
 
+// Export a archivo (xlsx): pega al mismo endpoint DataTable con ?exportType=…
+// Va por fetch propio + blob (useApi solo maneja json/text), con los headers de
+// auth de los interceptors (Bearer + X-Tenant).
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBaseUrl || '/api'
+const { run: runInterceptors } = useRequestInterceptors()
+const exporting = ref(false)
+
+async function downloadExport() {
+  if (exporting.value) return
+  exporting.value = true
+  try {
+    const headers = { Accept: 'application/octet-stream' }
+    runInterceptors(headers)
+    const qs = new URLSearchParams({ exportType: props.exportFormat, search: debouncedSearch.value })
+    for (const [k, v] of Object.entries(props.params ?? {})) {
+      if (v !== null && v !== undefined) qs.append(k, String(v))
+    }
+    const res = await fetch(`${apiBase}/${props.endpoint}?${qs.toString()}`, { headers })
+    if (!res.ok) throw new Error('export failed: ' + res.status)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${props.name}.${props.exportFormat}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error('[Table.MasterDetail] export error', e)
+  } finally {
+    exporting.value = false
+  }
+}
+
 const queryKey = computed(() => [props.name, 'md', debouncedSearch.value, props.params])
 const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } = useInfiniteQuery({
   queryKey,
@@ -65,6 +107,8 @@ const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch
     return meta.current_page < meta.last_page ? meta.current_page + 1 : undefined
   },
   initialPageParam: 1,
+  staleTime: props.cached ? 10 * 60 * 1000 : 0,
+  gcTime: props.cached ? 10 * 60 * 1000 : 5 * 60 * 1000,
 })
 const rows = computed(() => data.value?.pages.flatMap(p => p?.data ?? (Array.isArray(p) ? p : [])) ?? [])
 
@@ -101,9 +145,17 @@ function pick(row) {
   <div class="flex rounded-card border border-card-line overflow-hidden bg-card min-h-[360px]" :style="{ height }">
     <!-- ── Lista ── -->
     <aside class="w-80 shrink-0 border-e border-card-line flex flex-col">
-      <div v-if="title || $slots.action" class="p-3 flex items-center justify-between gap-2 border-b border-card-line">
-        <h2 class="text-sm font-semibold text-foreground">{{ title }}</h2>
-        <slot name="action" />
+      <div v-if="title || $slots.action || exportable" class="p-3 flex items-center justify-between gap-2 border-b border-card-line">
+        <h2 class="text-sm font-semibold text-foreground truncate">{{ title }}</h2>
+        <div class="flex items-center gap-2 shrink-0">
+          <slot name="action" />
+          <button v-if="exportable" type="button" @click="downloadExport" :disabled="exporting"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-card-line px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-surface hover:text-foreground disabled:opacity-50 transition-colors">
+            <IconLoader2 v-if="exporting" class="size-3.5 animate-spin" />
+            <IconDownload v-else class="size-3.5" :stroke-width="1.5" />
+            Exportar
+          </button>
+        </div>
       </div>
 
       <div class="px-3 pt-3 pb-2">
