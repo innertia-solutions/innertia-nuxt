@@ -274,30 +274,88 @@ function buildSheet(ws, workbook) {
   return { name: ws.name, cols, rows, firstRow: 1, imageMap }
 }
 
+/** Detecta el delimitador más probable de un texto tabular (tab / ; / ,). */
+function detectDelimiter(text) {
+  const line = text.split(/\r?\n/).find(l => l.trim()) ?? ''
+  const counts = { '\t': (line.match(/\t/g) || []).length, ';': (line.match(/;/g) || []).length, ',': (line.match(/,/g) || []).length }
+  const max = Math.max(counts['\t'], counts[';'], counts[','])
+  if (max === 0) return null
+  return counts['\t'] === max ? '\t' : (counts[';'] === max ? ';' : ',')
+}
+
+/** Parser genérico de texto delimitado con soporte de comillas. */
+function parseDelimited(text, delim) {
+  const rows = []
+  let row = [], cell = '', inQ = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (inQ) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++ } else inQ = false }
+      else cell += c
+    } else {
+      if (c === '"') inQ = true
+      else if (c === delim) { row.push(cell); cell = '' }
+      else if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = '' }
+      else if (c === '\r') continue
+      else cell += c
+    }
+  }
+  if (cell.length || row.length) { row.push(cell); rows.push(row) }
+  return rows
+}
+
+/** Construye una sheet (misma forma que buildSheet) desde texto delimitado. */
+function buildSheetFromDelimited(text, name = 'Hoja 1') {
+  const delim = detectDelimiter(text) ?? '\t'
+  const raw = parseDelimited(text, delim).filter(r => r.length && !(r.length === 1 && r[0] === ''))
+  const colCount = raw.reduce((m, r) => Math.max(m, r.length), 0)
+  const cols = []
+  for (let c = 0; c < colCount; c++) cols.push(colLetter(c))
+  const rows = raw.map((r, ri) => {
+    const rowData = []
+    for (let c = 0; c < colCount; c++) {
+      rowData.push({ v: r[c] ?? '', align: 'left', t: 'string', address: colLetter(c) + (ri + 1) })
+    }
+    return rowData
+  })
+  return { name, cols, rows, firstRow: 1, imageMap: {} }
+}
+
 const loadXlsx = async () => {
   if (viewerType.value !== 'xlsx') return
   isLoadingXlsx.value = true
   xlsxError.value = null
   xlsxActiveIdx.value = 0
+  let buf = null
   try {
+    const res = await fetch(src.value)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    buf = await res.arrayBuffer()
+
     const mod = await import('exceljs').catch(() => null)
     const ExcelJS = pickModule(mod, 'Workbook')
                   ?? (mod?.default?.Workbook ? mod.default : null)
                   ?? mod
-    if (!ExcelJS?.Workbook) {
-      console.warn('[FilesPreview] exceljs module shape:', mod)
-      throw new Error('Para previsualizar .xlsx instalá la dep: pnpm add exceljs')
-    }
-    const res = await fetch(src.value)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const buf = await res.arrayBuffer()
+    if (!ExcelJS?.Workbook) throw new Error('exceljs no disponible')
+
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.load(buf)
     const sheets = wb.worksheets.map(ws => buildSheet(ws, wb))
     xlsxWorkbook.value = { sheets }
   } catch (e) {
-    console.error('[FilesPreview] xlsx error', e)
-    xlsxError.value = e.message
+    // Fallback: el archivo no es un .xlsx OOXML válido (típico: un CSV/TSV exportado
+    // con extensión .xls, o mime mal detectado). Lo renderizamos como tabla delimitada.
+    try {
+      const text = new TextDecoder('utf-8').decode(buf ?? new ArrayBuffer(0))
+      if (text && text.trim()) {
+        xlsxWorkbook.value = { sheets: [buildSheetFromDelimited(text)] }
+      } else {
+        throw e
+      }
+    } catch (_) {
+      console.error('[FilesPreview] xlsx error', e)
+      xlsxError.value = 'No se pudo previsualizar la hoja de cálculo.'
+    }
   } finally {
     isLoadingXlsx.value = false
   }
