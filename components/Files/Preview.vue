@@ -60,10 +60,13 @@ const viewerType = computed(() => {
   if (mime === 'text/markdown' || ['md', 'markdown'].includes(ext)) return 'markdown'
   if (mime === 'text/csv' || ['csv', 'tsv'].includes(ext)) return 'csv'
 
-  if (mime.startsWith('text/') || ['log','yml','yaml','env','sh','js','ts','tsx','jsx','css','html','xml','php','py','rb','go','rs','java','sql','toml','ini'].includes(ext)) return 'text'
+  // Office por EXTENSIÓN antes del check de text/*: un .xls/.xlsx/.doc/.docx
+  // suele llegar con mime mal detectado (p.ej. text/plain u octet-stream) y aun
+  // así debe usar el renderer rico (Excel con pestañas / docx), no el de texto.
+  if (['xlsx', 'xls'].includes(ext) || mime.includes('spreadsheet') || mime.includes('excel')) return 'xlsx'
+  if (['docx', 'doc'].includes(ext) || mime.includes('wordprocessing') || mime.includes('msword')) return 'docx'
 
-  if (['xlsx','xls'].includes(ext) || mime.includes('spreadsheet') || mime.includes('excel')) return 'xlsx'
-  if (['docx','doc'].includes(ext) || mime.includes('wordprocessing') || mime.includes('msword')) return 'docx'
+  if (mime.startsWith('text/') || ['log','yml','yaml','env','sh','js','ts','tsx','jsx','css','html','xml','php','py','rb','go','rs','java','sql','toml','ini'].includes(ext)) return 'text'
 
   return 'unknown'
 })
