@@ -42,19 +42,22 @@ const props = defineProps({
 
 const emit = defineEmits(['click', 'delete'])
 
-const { download, view, viewUrl, formatSize, iconFor } = useFile()
+const { download, view, fileViewUrl, formatSize, iconFor } = useFile()
 
 const isImage = computed(() => props.file?.mime_type?.startsWith('image/'))
+
+// Thumbnail: view_url firmado del backend (o fallback a la ruta por-id).
+const thumbSrc = computed(() => fileViewUrl(props.file))
 const showThumb = computed(() => props.previewImage && isImage.value)
 const icon = computed(() => iconFor(props.file?.mime_type))
 
 const handleDownload = (e) => {
   e?.stopPropagation?.()
-  download(props.file.id, props.file.original_name)
+  download(props.file)
 }
 const handleView = (e) => {
   e?.stopPropagation?.()
-  view(props.file.id)
+  view(props.file)
 }
 const handleDelete = (e) => {
   e?.stopPropagation?.()
@@ -83,7 +86,7 @@ const handleDelete = (e) => {
     <div class="shrink-0">
       <img
         v-if="showThumb"
-        :src="viewUrl(file.id)"
+        :src="thumbSrc"
         :alt="file.original_name"
         class="size-10 rounded-control object-cover bg-muted"
       />
@@ -147,7 +150,7 @@ const handleDelete = (e) => {
       <!-- Imagen real -->
       <img
         v-if="showThumb"
-        :src="viewUrl(file.id)"
+        :src="thumbSrc"
         :alt="file.original_name"
         class="size-full object-cover"
       />

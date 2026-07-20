@@ -9,9 +9,12 @@ import {
  *
  * Cubre:
  *   - upload(endpoint, file|files, { field, onProgress, extraData, signal })
- *   - download(fileId, filename?)            — trigger descarga programática
- *   - view(fileId)                            — abrir inline en otra pestaña
- *   - viewUrl(fileId) / downloadUrl(fileId)   — URLs absolutas a las rutas de innertia-laravel
+ *   - download(file|fileId, filename?)        — trigger descarga programática
+ *   - view(file|fileId)                       — abrir inline en otra pestaña
+ *   - fileViewUrl(file) / fileDownloadUrl(file) — URL de serving PREFERIDA: usa el
+ *       view_url/download_url FIRMADO del backend (dominio propio, la firma es la
+ *       credencial → sirve en <img>/<iframe>/fetch sin Bearer); cae a la ruta por-id.
+ *   - viewUrl(fileId) / downloadUrl(fileId)   — rutas por-id (requieren auth; fallback)
  *   - formatSize(bytes)                       — helper humano-legible
  *   - iconFor(mimeType)                       — devuelve el componente Tabler para el mime
  *
@@ -26,10 +29,19 @@ export function useFile() {
   const { run } = useRequestInterceptors()
 
   // ── URLs ───────────────────────────────────────────────────────────────────
-  /** GET /files/{id} — inline view (respeta permisos del backend). */
+  /** GET /files/{id} — inline view por ruta (requiere auth; fallback). */
   const viewUrl     = (fileId) => `${baseUrl}/files/${fileId}`
-  /** GET /files/{id}/download — force download (respeta permisos). */
+  /** GET /files/{id}/download — force download por ruta (requiere auth; fallback). */
   const downloadUrl = (fileId) => `${baseUrl}/files/${fileId}/download`
+
+  /**
+   * URL de serving preferida para un objeto File del backend.
+   * Prioriza el `view_url`/`download_url` FIRMADO (dominio propio, la firma es la
+   * credencial → funciona en <img>/<iframe>/fetch sin Bearer ni cookie). Cae a la
+   * ruta por-id solo si el resource no trae la URL firmada (p.ej. archivos public).
+   */
+  const fileViewUrl     = (file) => file?.view_url     || (file?.id ? viewUrl(file.id) : null)
+  const fileDownloadUrl = (file) => file?.download_url || (file?.id ? downloadUrl(file.id) : null)
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const formatSize = (bytes) => {
@@ -57,21 +69,30 @@ export function useFile() {
   }
 
   // ── View / Download ────────────────────────────────────────────────────────
-  /** Abre el file inline en una nueva pestaña (usa la auth de cookie). */
-  const view = (fileId) => {
+  /**
+   * Abre el file inline en una nueva pestaña. Acepta el objeto File (usa su
+   * view_url firmado) o un id (fallback a la ruta). Preferir pasar el file.
+   */
+  const view = (fileOrId) => {
     if (typeof window === 'undefined') return
-    window.open(viewUrl(fileId), '_blank', 'noopener,noreferrer')
+    const url = typeof fileOrId === 'object' ? fileViewUrl(fileOrId) : viewUrl(fileOrId)
+    if (url) window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   /**
-   * Trigger descarga programática. Funciona con archivos auth/restricted
-   * porque el browser envía cookies automáticamente.
+   * Trigger descarga programática. Acepta el objeto File (usa su download_url
+   * firmado) o un id (fallback a la ruta). La firma es la credencial, así que
+   * funciona con archivos auth/restricted sin Bearer ni cookie.
    */
-  const download = (fileId, filename) => {
+  const download = (fileOrId, filename) => {
     if (typeof window === 'undefined') return
+    const isFile = typeof fileOrId === 'object'
+    const url    = isFile ? fileDownloadUrl(fileOrId) : downloadUrl(fileOrId)
+    if (!url) return
+    const name   = filename ?? (isFile ? fileOrId.original_name : undefined)
     const a = document.createElement('a')
-    a.href = downloadUrl(fileId)
-    if (filename) a.download = filename
+    a.href = url
+    if (name) a.download = name
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -179,6 +200,8 @@ export function useFile() {
     view,
     viewUrl,
     downloadUrl,
+    fileViewUrl,
+    fileDownloadUrl,
     formatSize,
     iconFor,
   }

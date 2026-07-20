@@ -37,9 +37,14 @@ const props = defineProps({
   showToolbar: { type: Boolean, default: true },
 })
 
-const { viewUrl, download, view, formatSize, iconFor } = useFile()
+const { fileViewUrl, download, view, formatSize, iconFor } = useFile()
 
 const fileIcon = computed(() => iconFor(props.file?.mime_type))
+
+// URL de serving preferida: el view_url FIRMADO del backend (dominio propio, la
+// firma es la credencial → sirve en <img>/<iframe>/fetch sin Bearer ni cookie).
+// Cae a la ruta por-id solo si el resource no trajo la URL firmada.
+const src = computed(() => fileViewUrl(props.file))
 
 // ─── Tipo de viewer ──────────────────────────────────────────────────────────
 const viewerType = computed(() => {
@@ -94,7 +99,7 @@ const fetchText = async () => {
   isLoadingTxt.value = true
   textError.value = null
   try {
-    const res = await fetch(viewUrl(props.file.id), { credentials: 'include' })
+    const res = await fetch(src.value)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     textContent.value = await res.text()
   } catch (e) {
@@ -280,7 +285,7 @@ const loadXlsx = async () => {
       console.warn('[FilesPreview] exceljs module shape:', mod)
       throw new Error('Para previsualizar .xlsx instalá la dep: pnpm add exceljs')
     }
-    const res = await fetch(viewUrl(props.file.id), { credentials: 'include' })
+    const res = await fetch(src.value)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const buf = await res.arrayBuffer()
     const wb = new ExcelJS.Workbook()
@@ -308,7 +313,7 @@ const loadDocx = async () => {
       console.warn('[FilesPreview] mammoth module shape:', mod)
       throw new Error('Para previsualizar .docx instalá la dep: pnpm add mammoth')
     }
-    const res = await fetch(viewUrl(props.file.id), { credentials: 'include' })
+    const res = await fetch(src.value)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const buf = await res.arrayBuffer()
     const result = await mammoth.convertToHtml({ arrayBuffer: buf })
@@ -448,7 +453,7 @@ const jsonPretty = computed(() => {
         type="button"
         title="Abrir en pestaña nueva"
         class="inline-flex items-center justify-center size-8 rounded-control text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors"
-        @click="view(file.id)"
+        @click="view(file)"
       >
         <IconExternalLink class="size-4" />
       </button>
@@ -456,7 +461,7 @@ const jsonPretty = computed(() => {
         type="button"
         title="Descargar"
         class="inline-flex items-center justify-center size-8 rounded-control text-muted-foreground hover:text-foreground hover:bg-muted-hover transition-colors"
-        @click="download(file.id, file.original_name)"
+        @click="download(file)"
       >
         <IconDownload class="size-4" />
       </button>
@@ -471,27 +476,27 @@ const jsonPretty = computed(() => {
                    view=FitH ajusta al ancho. -->
       <iframe
         v-if="viewerType === 'pdf'"
-        :src="`${viewUrl(file.id)}#navpanes=0&view=FitH`"
+        :src="`${src}#navpanes=0&view=FitH`"
         class="absolute inset-0 w-full h-full border-0"
         :title="file.original_name"
       />
 
       <!-- Image -->
       <div v-else-if="viewerType === 'image'" class="absolute inset-0 flex items-center justify-center bg-muted/30 p-4">
-        <img :src="viewUrl(file.id)" :alt="file.original_name" class="max-w-full max-h-full object-contain rounded-control shadow-sm" />
+        <img :src="src" :alt="file.original_name" class="max-w-full max-h-full object-contain rounded-control shadow-sm" />
       </div>
 
       <!-- Video -->
       <video
         v-else-if="viewerType === 'video'"
-        :src="viewUrl(file.id)"
+        :src="src"
         controls
         class="absolute inset-0 w-full h-full bg-black"
       />
 
       <!-- Audio -->
       <div v-else-if="viewerType === 'audio'" class="size-full flex items-center justify-center p-8 bg-muted/20">
-        <audio :src="viewUrl(file.id)" controls class="w-full max-w-md" />
+        <audio :src="src" controls class="w-full max-w-md" />
       </div>
 
       <!-- Markdown -->
@@ -646,7 +651,7 @@ const jsonPretty = computed(() => {
         </div>
         <button
           type="button"
-          @click="download(file.id, file.original_name)"
+          @click="download(file)"
           class="px-3 py-1.5 text-xs font-medium rounded-control bg-primary text-primary-foreground hover:bg-primary-hover inline-flex items-center gap-1.5"
         >
           <IconDownload :size="14" /> Descargar
