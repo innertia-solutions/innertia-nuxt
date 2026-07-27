@@ -12,7 +12,7 @@ import type { InnertiaMode } from '../app.config'
  *   isApp()     → true si mode === 'app'
  *   isOpen()    → true si mode === 'open'
  *   hasTenant() → true si mode === 'saas' | 'open' (usan multitenancy;
- *                 saas resuelve por subdominio, open por gym seleccionado)
+ *                 saas resuelve por subdominio, open por tenant seleccionado)
  */
 export function useInnertiaMode() {
   const appConfig = useAppConfig()
