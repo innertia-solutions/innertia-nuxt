@@ -2,9 +2,9 @@
 // El backend (ResolveTenantFromHeader) identifica el tenant por su key/slug, no por UUID.
 //   - saas: slug del tenant resuelto por subdominio (tenantStore); solo se envía
 //     cuando el tenant está validado (tenantId != null) para evitar el 'local' de dev.
-//   - open: key del gym seleccionado in-app (gymStore.activeKey).
+//   - open: key del tenant seleccionado in-app (activeTenant.activeKey).
 // useRequestInterceptors auto-imported desde nuxt-core.
-// useTenantStore / useGymStore auto-imported desde stores.
+// useTenantStore / useActiveTenantStore auto-imported desde stores.
 // Activo en mode === 'saas' | 'open'.
 export default defineNuxtPlugin(() => {
   const { isOpen, hasTenant } = useInnertiaMode()
@@ -15,10 +15,10 @@ export default defineNuxtPlugin(() => {
   const { add } = useRequestInterceptors()
 
   add((headers: Record<string, string>) => {
-    // open: tenant por gym seleccionado
+    // open: tenant por selección in-app
     if (isOpen()) {
-      const gymStore = useGymStore()
-      if (gymStore.activeKey) headers['X-Tenant'] = gymStore.activeKey
+      const activeTenant = useActiveTenantStore()
+      if (activeTenant.activeKey) headers['X-Tenant'] = activeTenant.activeKey
       return
     }
 
