@@ -1,4 +1,4 @@
-// useAuthStore, useApi, useOrganizationStore, useInnertiaMode, useGymSelection, useGymStore auto-imported
+// useAuthStore, useApi, useOrganizationStore, useInnertiaMode, useTenantSelection, useActiveTenantStore auto-imported
 
 export function useAuth() {
   const authStore = useAuthStore()
@@ -21,12 +21,12 @@ export function useAuth() {
     queryClient.clear()
     await fetchMe()
 
-    // En modo 'open' el tenant se resuelve por selección: cargamos los gyms del
+    // En modo 'open' el tenant se resuelve por selección: cargamos los tenants del
     // usuario y devolvemos un destino (0/1/2+). saas/app conservan su return.
     if (useInnertiaMode().isOpen()) {
-      const { resolveAfterLogin } = useGymSelection()
-      const gymDestination = await resolveAfterLogin() // 'onboarding' | 'ready' | 'picker'
-      return { ...(data ?? {}), gymDestination }
+      const { resolveAfterLogin } = useTenantSelection()
+      const tenantDestination = await resolveAfterLogin() // 'onboarding' | 'ready' | 'picker'
+      return { ...(data ?? {}), tenantDestination }
     }
 
     return data
@@ -77,8 +77,8 @@ export function useAuth() {
     queryClient.clear()
     authStore.logout()
     organizationStore.reset()
-    // En open, limpiar también el gym seleccionado
-    if (useInnertiaMode().isOpen()) useGymStore().reset()
+    // En open, limpiar también el tenant seleccionado
+    if (useInnertiaMode().isOpen()) useActiveTenantStore().reset()
     await navigateTo(loginPath)
   }
 
