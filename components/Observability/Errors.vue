@@ -1,9 +1,10 @@
 <script setup>
 // Lista de errores (casos) con filtros + criticidad + entrar al detalle.
-// Realtime: al recibir case.touched se refresca la tabla (bump de :key).
+// Realtime: el Panel cambia `touchedAt` al recibir case.touched → recarga la tabla
+// (bump de :key). La suscripción vive en el Panel (useRealtime es singleton por canal).
+const props = defineProps({ touchedAt: { type: Number, default: 0 } })
 const api = useApi()
 const toast = useToast()
-const rt = useRealtime()
 
 const selectedId = ref(null)
 const reloadKey = ref(0)
@@ -34,10 +35,7 @@ async function setStatus(row, status) {
   }
 }
 
-onMounted(async () => {
-  try { await rt.connect(); rt.subscribe('observability', { 'case.touched': () => { reloadKey.value++ } }) } catch {}
-})
-onBeforeUnmount(() => rt.unsubscribe('observability'))
+watch(() => props.touchedAt, () => { reloadKey.value++ })
 </script>
 
 <template>

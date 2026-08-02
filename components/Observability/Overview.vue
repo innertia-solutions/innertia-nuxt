@@ -1,20 +1,17 @@
 <script setup>
 // Overview pro: KPIs de errores (con criticidad), BD, slow queries y colas.
-// Refresca cada ~15s y en vivo al recibir case.touched.
+// Refresca cada ~15s y en vivo cuando el Panel cambia `touchedAt` (case.touched).
+// La suscripción realtime vive en el Panel (useRealtime es singleton por canal).
+const props = defineProps({ touchedAt: { type: Number, default: 0 } })
 const api = useApi()
-const rt = useRealtime()
 
 const { data, refresh } = await useAsyncData('obs-overview', () => api.get('platform/observability/overview'))
 const timer = ref(null)
 
-onMounted(async () => {
-  timer.value = setInterval(refresh, 15_000)
-  try { await rt.connect(); rt.subscribe('observability', { 'case.touched': () => refresh() }) } catch {}
-})
-onBeforeUnmount(() => {
-  if (timer.value) clearInterval(timer.value)
-  rt.unsubscribe('observability')
-})
+onMounted(() => { timer.value = setInterval(refresh, 15_000) })
+onBeforeUnmount(() => { if (timer.value) clearInterval(timer.value) })
+
+watch(() => props.touchedAt, () => refresh())
 
 function fmtBytes(b) {
   if (b == null) return '—'

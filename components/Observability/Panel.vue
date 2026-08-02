@@ -1,5 +1,11 @@
 <script setup>
 // Panel drop-in de observabilidad. Overview es la landing; luego BD, Errores, Logs, Archivos.
+// Realtime: UNA sola suscripción al canal 'observability' acá (useRealtime es singleton
+// por canal; suscribir en cada tab se pisaría el handler). Al recibir case.touched se
+// bumpea `touchedAt` y los tabs (Overview/Errores) reaccionan por prop.
+const rt = useRealtime()
+const touchedAt = ref(0)
+
 const TABS = [
   { key: 'overview', label: 'Resumen' },
   { key: 'database', label: 'Base de datos' },
@@ -8,6 +14,11 @@ const TABS = [
   { key: 'files',    label: 'Archivos' },
 ]
 const active = ref('overview')
+
+onMounted(async () => {
+  try { await rt.connect(); rt.subscribe('observability', { 'case.touched': () => { touchedAt.value = Date.now() } }) } catch {}
+})
+onBeforeUnmount(() => rt.unsubscribe('observability'))
 </script>
 
 <template>
@@ -20,9 +31,9 @@ const active = ref('overview')
       </button>
     </nav>
 
-    <div v-show="active === 'overview'"><Observability.Overview /></div>
+    <div v-show="active === 'overview'"><Observability.Overview :touched-at="touchedAt" /></div>
     <div v-show="active === 'database'"><Observability.Dashboard /></div>
-    <div v-show="active === 'errors'"><Observability.Errors /></div>
+    <div v-show="active === 'errors'"><Observability.Errors :touched-at="touchedAt" /></div>
     <div v-show="active === 'logs'"><Observability.Logs channel="operational" /></div>
     <div v-show="active === 'files'">
       <p class="rounded-card border border-dashed border-card-line p-8 text-center text-sm text-muted-foreground">
