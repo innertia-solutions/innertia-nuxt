@@ -58,13 +58,16 @@ function fmtMs(ms) { return ms == null ? '—' : `${Number(ms).toLocaleString('e
       </div>
       <table v-else class="w-full text-sm">
         <thead><tr class="text-left text-muted-foreground">
-          <th class="py-1">Query</th><th class="py-1">Llamadas</th><th class="py-1">Media</th><th class="py-1">Total</th>
+          <th class="py-1 pr-4">Query</th>
+          <th class="py-1 pr-4 whitespace-nowrap">Llamadas</th>
+          <th class="py-1 pr-4 whitespace-nowrap">Media</th>
+          <th class="py-1 whitespace-nowrap">Total</th>
         </tr></thead>
         <tbody>
           <tr v-for="q in queries.data.value?.top ?? []" :key="q.id" class="border-t border-card-line">
-            <td class="py-1 font-mono text-xs">{{ q.query }}</td>
-            <td class="py-1">{{ Number(q.calls).toLocaleString('es-CL') }}</td>
-            <td class="py-1">{{ fmtMs(q.mean_ms) }}</td>
+            <td class="py-1 pr-4 font-mono text-xs truncate max-w-md">{{ q.query }}</td>
+            <td class="py-1 pr-4">{{ Number(q.calls).toLocaleString('es-CL') }}</td>
+            <td class="py-1 pr-4">{{ fmtMs(q.mean_ms) }}</td>
             <td class="py-1">{{ fmtMs(q.total_ms) }}</td>
           </tr>
         </tbody>
