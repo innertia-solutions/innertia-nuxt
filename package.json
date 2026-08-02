@@ -1,6 +1,6 @@
 {
   "name": "@innertia-solutions/innertia-nuxt",
-  "version": "0.1.54",
+  "version": "0.1.55",
   "description": "Innertia Solutions — Nuxt layer unificada: core, auth, multitenancy, theme y app contexts",
   "keywords": [
     "nuxt",
