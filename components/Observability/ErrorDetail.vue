@@ -1,9 +1,8 @@
 <script setup>
-// Detalle de un caso de error (Sentry-like): header + criticidad, timeline de
-// ocurrencias, stack trace, contexto del request y traces de muestra.
-const props = defineProps({
-  id: { type: [String, Number], required: true },
-})
+// Detalle de un caso de error (Sentry-like) desde el snapshot durable del caso:
+// stack completo (in-app resaltado + código fuente), contexto del request,
+// cadena de excepciones y breadcrumbs. Timeline de ocurrencias arriba.
+const props = defineProps({ id: { type: [String, Number], required: true } })
 const emit = defineEmits(['back'])
 const api = useApi()
 
@@ -13,11 +12,13 @@ const { data, pending } = await useAsyncData(
   { watch: [() => props.id] },
 )
 
-const exceptionEvent = computed(() => (data.value?.events ?? []).find(e => e.type === 'exception'))
-const stackFrames = computed(() => exceptionEvent.value?.payload?.stack ?? exceptionEvent.value?.payload?.frames ?? [])
+const snap = computed(() => data.value?.snapshot ?? null)
 
 const timelineSeries = computed(() => [{ name: 'Ocurrencias', data: (data.value?.timeline ?? []).map(d => d.count) }])
 const timelineCats = computed(() => (data.value?.timeline ?? []).map(d => d.day))
+
+const expanded = ref({})
+function toggle(i) { expanded.value = { ...expanded.value, [i]: !expanded.value[i] } }
 
 const STATUS = { open: 'Abierto', resolved: 'Resuelto', ignored: 'Ignorado' }
 </script>
@@ -37,6 +38,7 @@ const STATUS = { open: 'Abierto', resolved: 'Resuelto', ignored: 'Ignorado' }
         </div>
         <h2 class="mt-2 text-lg font-semibold text-foreground">{{ data.case.title }}</h2>
         <p class="text-sm text-muted-foreground font-mono">{{ data.case.exception_class }}</p>
+        <p v-if="snap?.message" class="mt-1 text-sm text-foreground">{{ snap.message }}</p>
         <p class="mt-1 text-xs text-muted-foreground">Primera vez: {{ data.case.first_seen }} · Última: {{ data.case.last_seen }}</p>
       </div>
 
@@ -45,38 +47,58 @@ const STATUS = { open: 'Abierto', resolved: 'Resuelto', ignored: 'Ignorado' }
         <Chart type="bar" :series="timelineSeries" :categories="timelineCats" :height="160" />
       </section>
 
-      <section v-if="data.trace" class="rounded-card border border-card-line bg-card p-4 text-sm">
-        <h3 class="mb-2 text-sm font-semibold text-foreground">Contexto del request</h3>
-        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div><dt class="text-muted-foreground inline">Ruta:</dt> <dd class="inline text-foreground">{{ data.trace.method }} {{ data.trace.route ?? data.trace.url }}</dd></div>
-          <div><dt class="text-muted-foreground inline">Status:</dt> <dd class="inline text-foreground">{{ data.trace.status ?? '—' }}</dd></div>
-          <div><dt class="text-muted-foreground inline">Usuario:</dt> <dd class="inline text-foreground">{{ data.trace.user_id ?? '—' }}</dd></div>
-          <div><dt class="text-muted-foreground inline">Tenant:</dt> <dd class="inline text-foreground">{{ data.trace.tenant ?? '—' }}</dd></div>
-          <div><dt class="text-muted-foreground inline">IP:</dt> <dd class="inline text-foreground">{{ data.trace.ip ?? '—' }}</dd></div>
-          <div><dt class="text-muted-foreground inline">Duración:</dt> <dd class="inline text-foreground">{{ data.trace.duration_ms != null ? data.trace.duration_ms + ' ms' : '—' }}</dd></div>
-        </dl>
-      </section>
+      <div v-if="!snap" class="rounded-card border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-400">
+        Este caso no tiene snapshot (ocurrió antes de habilitarse la captura durable). Volverá a completarse la próxima vez que el error reincida.
+      </div>
 
-      <section v-if="stackFrames.length">
-        <h3 class="mb-2 text-sm font-semibold text-foreground">Stack trace</h3>
-        <ol class="rounded-card border border-card-line bg-card divide-y divide-card-line text-xs font-mono">
-          <li v-for="(f, i) in stackFrames" :key="i" class="px-3 py-1.5">
-            <span class="text-foreground">{{ f.function ?? f.call ?? '' }}</span>
-            <span class="text-muted-foreground"> — {{ f.file ?? '' }}<span v-if="f.line">:{{ f.line }}</span></span>
-          </li>
-        </ol>
-      </section>
-      <section v-else-if="exceptionEvent">
-        <h3 class="mb-2 text-sm font-semibold text-foreground">Excepción</h3>
-        <pre class="rounded-card border border-card-line bg-card p-3 text-xs whitespace-pre-wrap">{{ exceptionEvent.payload?.message ?? data.case.title }}</pre>
-      </section>
+      <template v-else>
+        <section v-if="snap.previous?.length">
+          <h3 class="mb-2 text-sm font-semibold text-foreground">Causado por</h3>
+          <ul class="space-y-1 text-xs">
+            <li v-for="(p, i) in snap.previous" :key="i" class="rounded-card border border-card-line bg-card px-3 py-1.5">
+              <span class="font-mono text-foreground">{{ p.class }}</span>
+              <span class="text-muted-foreground"> — {{ p.message }} <span class="opacity-70">({{ p.file }}:{{ p.line }})</span></span>
+            </li>
+          </ul>
+        </section>
 
-      <section v-if="data.samples?.length">
-        <h3 class="mb-2 text-sm font-semibold text-foreground">Ocurrencias de muestra</h3>
-        <ul class="text-xs text-muted-foreground space-y-1">
-          <li v-for="s in data.samples" :key="s.trace_id">{{ s.occurred_at }} · {{ s.method }} {{ s.route ?? s.url }} · {{ s.status ?? '—' }}</li>
-        </ul>
-      </section>
+        <section v-if="snap.request" class="rounded-card border border-card-line bg-card p-4 text-sm">
+          <h3 class="mb-2 text-sm font-semibold text-foreground">Contexto del request</h3>
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <div><dt class="text-muted-foreground inline">Ruta:</dt> <dd class="inline text-foreground">{{ snap.request.method }} {{ snap.request.route ?? snap.request.url }}</dd></div>
+            <div><dt class="text-muted-foreground inline">URL:</dt> <dd class="inline text-foreground break-all">{{ snap.request.url }}</dd></div>
+            <div><dt class="text-muted-foreground inline">Usuario:</dt> <dd class="inline text-foreground">{{ snap.request.user_id ?? '—' }}</dd></div>
+            <div><dt class="text-muted-foreground inline">IP:</dt> <dd class="inline text-foreground">{{ snap.request.ip ?? '—' }}</dd></div>
+          </dl>
+        </section>
+
+        <section v-if="snap.stack?.length">
+          <h3 class="mb-2 text-sm font-semibold text-foreground">Stack trace</h3>
+          <div class="rounded-card border border-card-line bg-card divide-y divide-card-line overflow-hidden">
+            <div v-for="(f, i) in snap.stack" :key="i" :class="f.in_app ? '' : 'opacity-60'">
+              <button type="button" class="w-full flex items-baseline gap-2 px-3 py-1.5 text-left text-xs hover:bg-slate-50 dark:hover:bg-slate-800/50" @click="toggle(i)">
+                <span v-if="f.in_app" class="mt-0.5 inline-block size-1.5 rounded-full bg-primary shrink-0" title="in-app" />
+                <span class="font-mono text-foreground">{{ f.function || '{main}' }}</span>
+                <span class="font-mono text-muted-foreground ml-auto shrink-0">{{ f.file }}<span v-if="f.line">:{{ f.line }}</span></span>
+              </button>
+              <div v-if="f.context && (expanded[i] || f.in_app)" class="bg-slate-50 dark:bg-slate-900/40 overflow-x-auto">
+                <pre class="text-[11px] leading-5 font-mono"><template v-for="ln in f.context" :key="ln.n"><div :class="ln.error ? 'bg-red-100 dark:bg-red-500/20' : ''" class="px-3"><span class="inline-block w-8 select-none text-muted-foreground text-right pr-2">{{ ln.n }}</span><span :class="ln.error ? 'text-red-700 dark:text-red-300' : 'text-foreground'">{{ ln.code }}</span></div></template></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="snap.breadcrumbs?.length">
+          <h3 class="mb-2 text-sm font-semibold text-foreground">Breadcrumbs (antes del error)</h3>
+          <ul class="rounded-card border border-card-line bg-card divide-y divide-card-line text-xs">
+            <li v-for="(b, i) in snap.breadcrumbs" :key="i" class="flex items-baseline gap-2 px-3 py-1.5">
+              <span class="rounded bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground shrink-0">{{ b.type }}</span>
+              <span class="font-mono text-foreground truncate">{{ b.summary }}</span>
+              <span v-if="b.duration_ms != null" class="ml-auto text-muted-foreground shrink-0">{{ b.duration_ms }} ms</span>
+            </li>
+          </ul>
+        </section>
+      </template>
     </template>
   </div>
 </template>
