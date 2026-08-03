@@ -34,6 +34,9 @@ const STATUS = { open: 'Abierto', resolved: 'Resuelto', ignored: 'Ignorado' }
         <div class="flex flex-wrap items-center gap-2">
           <span v-if="data.is_critical" class="rounded-full bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300 px-2 py-0.5 text-xs font-semibold">Crítico</span>
           <span class="rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 px-2 py-0.5 text-xs">{{ STATUS[data.case.status] ?? data.case.status }}</span>
+          <span v-if="data.case.origin" class="rounded-full bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 px-2 py-0.5 text-xs">{{ ({http:'HTTP',queue:'Worker',schedule:'Cron',console:'Consola'})[data.case.origin] ?? data.case.origin }}</span>
+          <span v-if="data.case.category" class="rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 px-2 py-0.5 text-xs">{{ ({database:'BD',http:'HTTP',auth:'Auth',validation:'Validación',runtime:'Runtime'})[data.case.category] ?? data.case.category }}</span>
+          <span v-for="(v, k) in (data.case.tags ?? {})" :key="k" class="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs">{{ k }}: {{ v }}</span>
           <span class="text-xs text-muted-foreground">{{ data.case.times_seen }} ocurrencias</span>
         </div>
         <h2 class="mt-2 text-lg font-semibold text-foreground">{{ data.case.title }}</h2>
@@ -66,10 +69,23 @@ const STATUS = { open: 'Abierto', resolved: 'Resuelto', ignored: 'Ignorado' }
           <h3 class="mb-2 text-sm font-semibold text-foreground">Contexto del request</h3>
           <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             <div><dt class="text-muted-foreground inline">Ruta:</dt> <dd class="inline text-foreground">{{ snap.request.method }} {{ snap.request.route ?? snap.request.url }}</dd></div>
-            <div><dt class="text-muted-foreground inline">URL:</dt> <dd class="inline text-foreground break-all">{{ snap.request.url }}</dd></div>
+            <div><dt class="text-muted-foreground inline">Status:</dt> <dd class="inline text-foreground">{{ data.trace?.status ?? '—' }}</dd></div>
             <div><dt class="text-muted-foreground inline">Usuario:</dt> <dd class="inline text-foreground">{{ snap.request.user_id ?? '—' }}</dd></div>
             <div><dt class="text-muted-foreground inline">IP:</dt> <dd class="inline text-foreground">{{ snap.request.ip ?? '—' }}</dd></div>
+            <div class="col-span-2"><dt class="text-muted-foreground inline">User-Agent:</dt> <dd class="inline text-foreground break-all">{{ snap.request.user_agent ?? '—' }}</dd></div>
           </dl>
+          <details v-if="snap.request.query && Object.keys(snap.request.query).length" class="mt-2 text-xs">
+            <summary class="cursor-pointer text-muted-foreground">Query params</summary>
+            <pre class="mt-1 overflow-x-auto rounded bg-slate-50 dark:bg-slate-900/40 p-2 text-[11px]">{{ JSON.stringify(snap.request.query, null, 2) }}</pre>
+          </details>
+          <details v-if="snap.request.body && Object.keys(snap.request.body).length" class="mt-2 text-xs">
+            <summary class="cursor-pointer text-muted-foreground">Body</summary>
+            <pre class="mt-1 overflow-x-auto rounded bg-slate-50 dark:bg-slate-900/40 p-2 text-[11px]">{{ JSON.stringify(snap.request.body, null, 2) }}</pre>
+          </details>
+          <details v-if="snap.request.headers && Object.keys(snap.request.headers).length" class="mt-2 text-xs">
+            <summary class="cursor-pointer text-muted-foreground">Headers</summary>
+            <pre class="mt-1 overflow-x-auto rounded bg-slate-50 dark:bg-slate-900/40 p-2 text-[11px]">{{ JSON.stringify(snap.request.headers, null, 2) }}</pre>
+          </details>
         </section>
 
         <section v-if="snap.stack?.length">
