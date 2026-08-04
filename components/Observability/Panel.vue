@@ -10,6 +10,7 @@ const TABS = [
   { key: 'overview', label: 'Resumen' },
   { key: 'database', label: 'Base de datos' },
   { key: 'errors',   label: 'Errores' },
+  { key: 'queues',   label: 'Colas' },
   { key: 'logs',     label: 'Logs' },
   { key: 'files',    label: 'Archivos' },
 ]
@@ -34,6 +35,7 @@ onBeforeUnmount(() => rt.unsubscribe('observability'))
     <div v-show="active === 'overview'"><Observability.Overview :touched-at="touchedAt" /></div>
     <div v-show="active === 'database'"><Observability.Dashboard /></div>
     <div v-show="active === 'errors'"><Observability.Errors :touched-at="touchedAt" /></div>
+    <div v-show="active === 'queues'"><Observability.Queues /></div>
     <div v-show="active === 'logs'"><Observability.Logs channel="operational" /></div>
     <div v-show="active === 'files'">
       <p class="rounded-card border border-dashed border-card-line p-8 text-center text-sm text-muted-foreground">
