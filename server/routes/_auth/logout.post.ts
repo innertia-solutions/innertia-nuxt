@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const { token } = await readSession(event)
   if (token) {
     try {
-      await $fetch(`${config.apiInternalUrl}/api/auth/logout`, {
+      await $fetch(`${config.apiInternalUrl}/auth/logout`, {
         method: 'POST', headers: { ...buildAuthHeaders(token), Accept: 'application/json' },
       })
     } catch { /* best-effort */ }

@@ -1,9 +1,13 @@
 // Lógica pura del BFF. Sin dependencias de h3 para poder testear aislado.
 
-/** Construye la URL destino en Laravel: base + /api/ + path + query. */
+/**
+ * Construye la URL destino en Laravel: base + path + query.
+ * El prefijo `/api` del front es solo el punto de montaje del BFF; Laravel sirve
+ * en root (el proxy viejo `/api/** → http://api:80/**` también stripeaba el /api).
+ */
 export function resolveApiTarget(base: string, path: string, search: string): string {
   const cleanBase = base.replace(/\/+$/, '')
-  return `${cleanBase}/api/${path}${search}`
+  return `${cleanBase}/${path}${search}`
 }
 
 /**

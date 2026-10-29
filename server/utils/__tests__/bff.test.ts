@@ -2,13 +2,13 @@ import { describe, it, expect } from 'vitest'
 import { resolveApiTarget, buildAuthHeaders } from '../bff'
 
 describe('resolveApiTarget', () => {
-  it('arma base + /api/ + path + querystring', () => {
-    expect(resolveApiTarget('http://api:80', 'auth/me', '')).toBe('http://api:80/api/auth/me')
+  it('arma base + path + querystring (Laravel sirve en root, sin /api)', () => {
+    expect(resolveApiTarget('http://api:80', 'auth/me', '')).toBe('http://api:80/auth/me')
     expect(resolveApiTarget('http://api:80', 'question-bank', '?perPage=1'))
-      .toBe('http://api:80/api/question-bank?perPage=1')
+      .toBe('http://api:80/question-bank?perPage=1')
   })
   it('normaliza slashes duplicados en la base', () => {
-    expect(resolveApiTarget('http://api:80/', 'auth/me', '')).toBe('http://api:80/api/auth/me')
+    expect(resolveApiTarget('http://api:80/', 'auth/me', '')).toBe('http://api:80/auth/me')
   })
 })
 

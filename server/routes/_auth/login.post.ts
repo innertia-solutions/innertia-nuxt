@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
   let data: any
   try {
-    data = await $fetch(`${config.apiInternalUrl}/api/auth/login`, {
+    data = await $fetch(`${config.apiInternalUrl}/auth/login`, {
       method: 'POST',
       body: { context, email, password, remember },
       headers: { Accept: 'application/json' },

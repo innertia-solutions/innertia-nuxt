@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const context = (query.context as string) || 'backoffice'
   let data: any
   try {
-    data = await $fetch(`${config.apiInternalUrl}/api/auth/${provider}/callback`, {
+    data = await $fetch(`${config.apiInternalUrl}/auth/${provider}/callback`, {
       method: 'GET', query, headers: { Accept: 'application/json' },
     })
   } catch (err: any) {
