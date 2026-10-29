@@ -42,6 +42,14 @@ export function useApi() {
     }
     run(headers, options)
 
+    // SSR: adjuntar el Bearer desde la sesión sellada del request activo
+    // (el BFF no interviene en llamadas server-side directas a Laravel).
+    if (import.meta.server) {
+      const event = useRequestEvent()
+      const token = event?.context?.authToken
+      if (token) headers['Authorization'] = `Bearer ${token}`
+    }
+
     const cleanPath = path.startsWith('/') ? path.slice(1) : path
     let url = `${baseUrl}/${cleanPath}`
 
