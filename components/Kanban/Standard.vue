@@ -459,21 +459,37 @@ const onDragStart = (row, state) => {
 }
 const onDragOver = (e, state) => {
   e.preventDefault()
-  dragOverState.value = state
+  if (dragOverState.value !== state) dragOverState.value = state
   if (!props.reorderEndpoint) return
   if (dragOverIndex.value === null) dragOverIndex.value = columnRows.value[state]?.length ?? 0
 }
-const onDragLeave = () => { dragOverState.value = null; dragOverIndex.value = null }
+// Parpadeo: el drag nativo dispara `dragleave` al entrar a un hijo (tarjeta/placeholder).
+// Si limpiamos el estado ahí, el fondo de la columna + el placeholder parpadean. Solo
+// limpiamos cuando el cursor sale de verdad de la columna (relatedTarget fuera).
+const onDragLeave = (e) => {
+  if (e.currentTarget.contains(e.relatedTarget)) return
+  dragOverState.value = null
+  dragOverIndex.value = null
+}
+// Al terminar el arrastre (drop o cancelado) limpiar siempre el estado visual.
+const onDragEnd = () => {
+  dragOverState.value = null
+  dragOverIndex.value = null
+  draggedId.value = null
+  draggedFrom.value = null
+}
 
 // Llamado desde cada tarjeta: calcula si el cursor está en la mitad superior o inferior.
+// Solo escribe el índice si cambió (evita reactividad redundante = menos re-render/parpadeo).
 const onCardDragOver = (e, state, index) => {
   if (!props.reorderEndpoint) return
   e.preventDefault()
   e.stopPropagation()
-  dragOverState.value = state
+  if (dragOverState.value !== state) dragOverState.value = state
   const rect = e.currentTarget.getBoundingClientRect()
   const after = (e.clientY - rect.top) > rect.height / 2
-  dragOverIndex.value = after ? index + 1 : index
+  const next = after ? index + 1 : index
+  if (dragOverIndex.value !== next) dragOverIndex.value = next
 }
 
 const onDrop = async (targetState) => {
@@ -827,15 +843,17 @@ defineExpose({ reload: fetchAll, rows })
               <template v-for="(row, ci) in columnRows[state.key]" :key="row.id">
                 <div
                   v-if="reorderEndpoint && dragOverState === state.key && dragOverIndex === ci"
-                  class="rounded-card border-2 border-dashed border-primary/50 bg-primary/5 h-10"
+                  class="rounded-card border-2 border-dashed border-primary/50 bg-primary/5 h-10 pointer-events-none"
                 />
                 <div
                   draggable="true"
                   @dragstart="onDragStart(row, state.key)"
                   @dragover="onCardDragOver($event, state.key, ci)"
+                  @dragend="onDragEnd"
                   @click="handleCardClick(row)"
-                  class="bg-card border border-card-line rounded-card p-3 cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-sm transition-all select-none"
+                  class="bg-card border border-card-line rounded-card p-3 cursor-grab active:cursor-grabbing transition-colors select-none"
                   :class="[
+                    draggedId ? '' : 'hover:border-primary/40 hover:shadow-sm',
                     draggedId === row.id ? 'opacity-40' : '',
                     previewRow?.id === row.id ? 'ring-2 ring-primary/30' : '',
                   ]"
