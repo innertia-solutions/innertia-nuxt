@@ -6,13 +6,13 @@ import { normalizeLoginResponse } from '../../utils/login'
 // sesión y devuelve el body SIN token. Propaga el status de Laravel (403 = el
 // usuario no posee ese contexto → el probing del cliente prueba el siguiente).
 export default defineEventHandler(async (event) => {
-  const { context, email, password } = await readBody(event)
+  const { context, email, password, remember } = await readBody(event)
   const config = useRuntimeConfig(event)
   let data: any
   try {
     data = await $fetch(`${config.apiInternalUrl}/api/auth/login`, {
       method: 'POST',
-      body: { context, email, password },
+      body: { context, email, password, remember },
       headers: { Accept: 'application/json' },
     })
   } catch (err: any) {

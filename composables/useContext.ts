@@ -63,7 +63,12 @@ export function useContext() {
    * Updates store and reloads permissions via fetchMe.
    */
   async function confirmSwitch(targetContext: string) {
-    authStore.setCurrentContext(targetContext)
+    const context = targetContext
+    authStore.setCurrentContext(context)
+    // Sincronizar el contexto activo en la sesión sellada (para SSR).
+    if (import.meta.client) {
+      try { await $fetch('/_auth/context', { method: 'PUT', body: { context } }) } catch { /* best-effort */ }
+    }
     await fetchMe()
     return { success: true }
   }

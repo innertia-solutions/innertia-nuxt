@@ -3,8 +3,9 @@
 export default defineNuxtPlugin(async () => {
   const authStore = useAuthStore()
   const api = useApi()
+  const requestFetch = useRequestFetch()
   try {
-    const session = await $fetch('/_auth/session')
+    const session = await requestFetch('/_auth/session')
     if (!session?.authenticated) { authStore.setAuthenticated(false); return }
     authStore.setAuthenticated(true)
     if (session.currentContext) authStore.currentContext = session.currentContext
