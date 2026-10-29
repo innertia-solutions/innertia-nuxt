@@ -14,9 +14,13 @@ export function useAuth() {
    */
   async function performLogin(context, email, password, remember = false) {
     authStore.rememberUser = remember
-    // Endpoint agnóstico de contexto: el contexto viaja en el payload (y luego en el JWT).
-    const data = await api.post('auth/login', { email, password, context })
-    authStore.saveToken(data.token ?? data.access_token)
+    // Sella la sesión en el server (Nitro). Devuelve user+contexts, SIN token.
+    const data = await $fetch('/_auth/login', {
+      method: 'POST',
+      body: { context, email, password, remember },
+    })
+    authStore.setAuthenticated(true)
+    if (data.user) authStore.saveUser(data.user)
     authStore.setCurrentContext(context)
     queryClient.clear()
     await fetchMe()
@@ -69,13 +73,9 @@ export function useAuth() {
    * Logout: best-effort POST to backend, then clear local state and redirect.
    */
   async function logout() {
-    try {
-      await api.post('auth/logout', {})
-    } catch {
-      // best-effort — ignore network failures
-    }
+    try { await $fetch('/_auth/logout', { method: 'POST' }) } catch { /* best-effort */ }
     queryClient.clear()
-    authStore.logout()
+    authStore.logout() // limpia el state en memoria
     organizationStore.reset()
     // En open, limpiar también el tenant seleccionado
     if (useInnertiaMode().isOpen()) useActiveTenantStore().reset()
@@ -87,10 +87,11 @@ export function useAuth() {
    * Returns the URL string from the backend.
    */
   async function getOauthRedirectUrl(context, provider) {
-    // Endpoint agnóstico: el contexto viaja como query param (el backend lo
-    // codifica en el state de OAuth y lo recupera en el callback).
-    const data = await api.get(`auth/${provider}/redirect`, { params: { context } })
-    return data.url
+    // Laravel arma la URL de Google, pero el redirect_uri debe volver a la ruta
+    // Nitro que sella la sesión: /_auth/{provider}/callback
+    const redirectUri = `${window.location.origin}/_auth/${provider}/callback?context=${context}`
+    const data = await api.get(`auth/${provider}/redirect`, { params: { context, redirect_uri: redirectUri } })
+    return data.url ?? data
   }
 
   return { performLogin, fetchMe, logout, getOauthRedirectUrl }
