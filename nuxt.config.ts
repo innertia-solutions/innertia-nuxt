@@ -22,6 +22,10 @@ export default defineNuxtConfig({
     ],
   },
   runtimeConfig: {
+    // Privado (solo server). Llenado desde NUXT_SESSION_PASSWORD (≥32 chars).
+    session: {
+      password: '',
+    },
     public: {
       loginPath: '/backoffice/login',
       homePath: '/backoffice',
