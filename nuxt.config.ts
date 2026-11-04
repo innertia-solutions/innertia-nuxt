@@ -16,7 +16,7 @@ export default defineNuxtConfig({
       const built = collectBuildVersion(nuxt.options.rootDir)
       nuxt.options.runtimeConfig.innertiaVersion = {
         ...current,
-        app: current.app || built.app,
+        app: current.app || nuxt.options.runtimeConfig.public?.appName || built.app,
         version: current.version || built.version,
         commit: current.commit || built.commit,
         buildDate: current.buildDate || built.buildDate,
