@@ -1,6 +1,7 @@
-import { defineEventHandler, getRouterParam, getQuery, sendRedirect, createError } from 'h3'
+import { defineEventHandler, getRouterParam, getQuery, sendRedirect, createError, getRequestHeader } from 'h3'
 import { writeSession } from '../../../utils/session'
 import { normalizeLoginResponse } from '../../../utils/login'
+import { forwardClientHeaders } from '../../../utils/bff'
 
 // Recibe el callback de OAuth, intercambia contra Laravel, sella la sesión y
 // redirige a la app. El token nunca llega al browser.
@@ -12,7 +13,7 @@ export default defineEventHandler(async (event) => {
   let data: any
   try {
     data = await $fetch(`${config.apiInternalUrl}/auth/${provider}/callback`, {
-      method: 'GET', query, headers: { Accept: 'application/json' },
+      method: 'GET', query, headers: { Accept: 'application/json', ...forwardClientHeaders(n => getRequestHeader(event, n)) },
     })
   } catch (err: any) {
     const msg = err?.data?.message ?? 'oauth_failed'

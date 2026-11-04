@@ -20,3 +20,21 @@ describe('buildAuthHeaders', () => {
     expect(buildAuthHeaders(undefined)).toEqual({ cookie: '' })
   })
 })
+
+describe('forwardClientHeaders', () => {
+  it('reenvía solo IP y user-agent del cliente, omitiendo los ausentes', async () => {
+    const { forwardClientHeaders } = await import('../bff')
+    const headers: Record<string, string> = {
+      'x-forwarded-for': '200.1.2.3, 172.68.0.1',
+      'cf-connecting-ip': '200.1.2.3',
+      'user-agent': 'Mozilla/5.0',
+      cookie: 'innertia_session=secret',
+      authorization: 'Bearer x',
+    }
+    expect(forwardClientHeaders(n => headers[n])).toEqual({
+      'x-forwarded-for': '200.1.2.3, 172.68.0.1',
+      'cf-connecting-ip': '200.1.2.3',
+      'user-agent': 'Mozilla/5.0',
+    })
+  })
+})

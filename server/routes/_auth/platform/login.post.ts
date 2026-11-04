@@ -1,5 +1,6 @@
-import { defineEventHandler, readBody, createError } from 'h3'
+import { defineEventHandler, readBody, createError, getRequestHeader } from 'h3'
 import { writeSession } from '../../../utils/session'
+import { forwardClientHeaders } from '../../../utils/bff'
 import { normalizeLoginResponse } from '../../../utils/login'
 
 // Login de plataforma (identidad separada, sin contexto de tenant). Llama a
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
     data = await $fetch(`${config.apiInternalUrl}/platform/auth/login`, {
       method: 'POST',
       body: { email, password },
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...forwardClientHeaders(n => getRequestHeader(event, n)) },
     })
   } catch (err: any) {
     const status = err?.response?.status ?? err?.statusCode ?? 500
