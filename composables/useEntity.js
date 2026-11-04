@@ -37,7 +37,7 @@ export function useEntity() {
 
   const list = (params = {}) => useQuery({
     queryKey: computed(() => ['entities', toValue(params)]),
-    queryFn: () => api.post('entities', toValue(params)),
+    queryFn: () => api.get('entities', { params: toValue(params) }),
   })
 
   const detail = (id) => useQuery({

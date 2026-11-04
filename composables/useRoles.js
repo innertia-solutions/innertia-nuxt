@@ -6,7 +6,7 @@ export function useRoles() {
 
   const list = (params = {}) => useQuery({
     queryKey: computed(() => ['roles', toValue(params)]),
-    queryFn: () => api.post('roles', toValue(params)),
+    queryFn: () => api.get('roles', { params: toValue(params) }),
   })
 
   const detail = (id) => useQuery({

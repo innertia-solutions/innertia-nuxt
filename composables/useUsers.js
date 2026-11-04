@@ -6,7 +6,7 @@ export function useUsers() {
 
   const list = (params = {}) => useQuery({
     queryKey: computed(() => ['users', toValue(params)]),
-    queryFn: () => api.post('users', toValue(params)),
+    queryFn: () => api.get('users', { params: toValue(params) }),
   })
 
   const detail = (id) => useQuery({
