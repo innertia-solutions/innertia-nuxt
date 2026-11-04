@@ -1,4 +1,5 @@
 // useRequestInterceptors auto-imported from nuxt-core
+import { deleteCookie } from 'h3'
 // useAuthStore auto-imported from this package
 
 export function useApi() {
@@ -9,6 +10,10 @@ export function useApi() {
     ? (config.apiInternalUrl || config.public.apiBaseUrl || '/api')
     : (config.public.apiBaseUrl || '/api')
   const loginPath = config.public.loginPath || '/login'
+  // Capturados en setup (contexto Nuxt síncrono): tras un await en makeRequest
+  // el contexto puede no estar disponible.
+  const requestEvent = import.meta.server ? useRequestEvent() : null
+  const router = import.meta.client ? useRouter() : null
 
   const { run, add } = useRequestInterceptors()
 
@@ -66,7 +71,19 @@ export function useApi() {
     if (response.status === 401) {
       const authStore = useAuthStore()
       authStore.logout()
-      await navigateTo(loginPath)
+      // La sesión sellada quedó inválida (token revocado, usuario borrado, BD
+      // reseteada): hay que BORRARLA. Si no, cada request vuelve "autenticado",
+      // guest manda a home, auth/me da 401 y se redirige a login → loop infinito
+      // (ERR_TOO_MANY_REDIRECTS).
+      if (requestEvent) {
+        requestEvent.context.authToken = undefined
+        deleteCookie(requestEvent, 'innertia_session', { path: '/' })
+      } else if (import.meta.client) {
+        try { await $fetch('/_auth/logout', { method: 'POST' }) } catch { /* best-effort */ }
+      }
+      const current = requestEvent ? requestEvent.path?.split('?')[0] : router?.currentRoute.value.path
+      // Ya en una página de login (la del producto o /platform/login): no redirigir.
+      if (current !== loginPath && !current?.endsWith('/login')) await navigateTo(loginPath)
       return null
     }
 
