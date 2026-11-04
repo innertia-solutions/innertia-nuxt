@@ -1,4 +1,4 @@
-// useTenantSelection, useActiveTenantStore, useAppConfig auto-imported.
+// useTenantSelection, useActiveTenantStore, useOrganizationStore, useAppConfig auto-imported.
 //
 // Modo 'open' — login personal unificado.
 //
@@ -65,6 +65,8 @@ export function useLoginDestinations() {
 
   /** Fija el tenant + contexto activos y navega a la home del contexto elegido. */
   async function go(destination) {
+    // Cambio de tenant → limpiar la sede activa (la cookie de orgs no está keyed por tenant).
+    if (destination.tenantKey !== store.activeKey) useOrganizationStore().reset()
     store.setActive(destination.tenantKey)
     store.setActiveContext(destination.context)
     await navigateTo(destination.home)

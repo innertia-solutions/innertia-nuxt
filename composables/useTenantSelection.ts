@@ -1,10 +1,20 @@
-// useApi, useActiveTenantStore auto-imported.
+// useApi, useActiveTenantStore, useOrganizationStore auto-imported.
 // Selección de tenant en modo 'open': carga los tenants del usuario y resuelve
 // el destino post-login según cuántos tenga (0 / 1 / 2+).
 
 export function useTenantSelection() {
   const api = useApi()
   const store = useActiveTenantStore()
+
+  /**
+   * Activa un tenant. Si cambia, resetea la sede (org) activa: la cookie de orgs
+   * está keyed por contexto, no por tenant, y una sede del tenant anterior
+   * viajaría en X-Organization (→ 401/403 en el backend).
+   */
+  function activate(key) {
+    if (key !== store.activeKey) useOrganizationStore().reset()
+    store.setActive(key)
+  }
 
   /** Carga los tenants del usuario autenticado y los guarda en el store. */
   async function load() {
@@ -23,13 +33,13 @@ export function useTenantSelection() {
   async function resolveAfterLogin() {
     await load()
     if (store.tenants.length === 0) return 'onboarding'
-    if (store.tenants.length === 1) { store.setActive(store.tenants[0].key); return 'ready' }
+    if (store.tenants.length === 1) { activate(store.tenants[0].key); return 'ready' }
     if (store.activeKey && store.tenants.some((t) => t.key === store.activeKey)) return 'ready'
     return 'picker'
   }
 
   /** Cambia el tenant activo (switcher). */
-  function switchTo(key) { store.setActive(key) }
+  function switchTo(key) { activate(key) }
 
   return { load, resolveAfterLogin, switchTo }
 }
