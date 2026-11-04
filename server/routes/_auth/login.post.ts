@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody, createError, getRequestHeader } from 'h3'
 import { writeSession } from '../../utils/session'
 import { forwardClientHeaders } from '../../utils/bff'
-import { normalizeLoginResponse } from '../../utils/login'
+import { normalizeLoginResponse, loginErrorMessage } from '../../utils/login'
 
 // Llama a Laravel /auth/login server-to-server; en éxito sella el JWT en la
 // sesión y devuelve el body SIN token. Propaga el status de Laravel (403 = el
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     })
   } catch (err: any) {
     const status = err?.response?.status ?? err?.statusCode ?? 500
-    throw createError({ statusCode: status, data: err?.data ?? null, statusMessage: 'login_failed' })
+    throw createError({ statusCode: status, data: err?.data ?? null, statusMessage: 'login_failed', message: loginErrorMessage(status, err?.data) })
   }
   const { token, body } = normalizeLoginResponse(data)
   await writeSession(event, { token, currentContext: context })
