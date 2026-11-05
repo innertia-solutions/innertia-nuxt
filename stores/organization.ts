@@ -12,7 +12,7 @@ import { defineStore } from 'pinia'
  * Org shape: { id, key (slug), name }
  *
  * Persistencia:
- *   - `currentByContext` en cookie 'innertia_org_by_ctx' (30d, SSR-leíble)
+ *   - `currentByContext` + `consolidated` en cookie 'innertia_org_by_ctx' (30d, SSR-leíble)
  *   - `available` NO se persiste — viene fresco de auth/me en cada boot
  */
 export const useOrganizationStore = defineStore('organization', {
@@ -28,7 +28,9 @@ export const useOrganizationStore = defineStore('organization', {
   persist: [
     {
       key: 'innertia_org_by_ctx',
-      pick: ['currentByContext'],
+      // `consolidated` también: la vista comunal/consolidada elegida debe sobrevivir a la recarga
+      // (el backend igual valida X-Consolidated con los permisos del usuario).
+      pick: ['currentByContext', 'consolidated'],
       // pinia-plugin-persistedstate v4: `cookies(...)` es una fábrica que recibe las
       // opciones. Pasarla sin llamar (API v3 + `cookieOptions`) deja un storage inválido
       // y la sede elegida nunca se guarda: cada recarga vuelve al selector de sede.
