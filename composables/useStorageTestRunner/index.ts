@@ -1,8 +1,8 @@
 import { ref, computed } from 'vue'
-import { runSteps, type StepResult } from './engine'
-import { buildStorageSteps, sha256Hex, type StorageTestOptions } from './steps'
+import { runSteps, type StepResult } from './internal/engine'
+import { buildStorageSteps, sha256Hex, type StorageTestOptions } from './internal/steps'
 
-export type { StepResult, StepStatus } from './engine'
+export type { StepResult, StepStatus } from './internal/engine'
 
 /**
  * Pruebas de almacenamiento de punta a punta contra la API real de Files,
