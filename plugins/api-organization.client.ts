@@ -11,27 +11,35 @@
  * el header por-request sin afectar el toggle global.
  *
  * Solo activo cuando `mode === 'saas'` (orgs viven dentro de un tenant).
+ *
+ * Depende de `innertia:vue-query`: useOrganization → useAuth → useQueryClient()
+ * necesita el QueryClient instalado. Sin `dependsOn`, el orden alfabético de la
+ * capa corre este plugin antes y el cliente cae con "No 'queryClient' found".
  */
-export default defineNuxtPlugin(() => {
-  const { hasTenant } = useInnertiaMode()
-  if (!hasTenant()) return
+export default defineNuxtPlugin({
+  name: 'innertia:api-organization',
+  dependsOn: ['innertia:vue-query'],
+  setup() {
+    const { hasTenant } = useInnertiaMode()
+    if (!hasTenant()) return
 
-  const appConfig = useAppConfig()
-  if (!appConfig.innertia?.organizations?.enabled) return
+    const appConfig = useAppConfig()
+    if (!appConfig.innertia?.organizations?.enabled) return
 
-  const { add } = useRequestInterceptors()
-  const organizationStore = useOrganizationStore()
-  const { currentContext } = useOrganization()
+    const { add } = useRequestInterceptors()
+    const organizationStore = useOrganizationStore()
+    const { currentContext } = useOrganization()
 
-  add((headers: Record<string, string>) => {
-    const ctx = currentContext.value
-    if (!ctx) return
+    add((headers: Record<string, string>) => {
+      const ctx = currentContext.value
+      if (!ctx) return
 
-    const slug = organizationStore.currentFor(ctx)
-    if (slug) headers['X-Organization'] = slug
+      const slug = organizationStore.currentFor(ctx)
+      if (slug) headers['X-Organization'] = slug
 
-    if (organizationStore.consolidated) {
-      headers['X-Consolidated'] = 'true'
-    }
-  })
+      if (organizationStore.consolidated) {
+        headers['X-Consolidated'] = 'true'
+      }
+    })
+  },
 })
