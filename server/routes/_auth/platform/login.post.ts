@@ -23,6 +23,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: status, data: err?.data ?? null, statusMessage: 'login_failed', message: loginErrorMessage(status, err?.data) })
   }
   const { token, body } = normalizeLoginResponse(data)
-  await writeSession(event, { token })
+  if (token) await writeSession(event, { token })
   return body
 })

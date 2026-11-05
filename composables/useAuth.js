@@ -19,6 +19,11 @@ export function useAuth() {
       method: 'POST',
       body: { context, email, password, remember },
     })
+    // Paso previo (cambio forzado / OTP / 2FA): sin sesión todavía → el caller
+    // decide (p. ej. pantalla de cambio de clave con data.user_id).
+    if (!data?.user && (data?.requires_password_change || data?.requires_otp || data?.requires_2fa || data?.requires_email_verification)) {
+      return data
+    }
     authStore.setAuthenticated(true)
     if (data.user) authStore.saveUser(data.user)
     authStore.setCurrentContext(context)

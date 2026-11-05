@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: status, data: err?.data ?? null, statusMessage: 'login_failed', message: loginErrorMessage(status, err?.data) })
   }
   const { token, body } = normalizeLoginResponse(data)
-  await writeSession(event, { token, currentContext: context })
+  // Sin token (cambio forzado / OTP / 2FA): no hay sesión que sellar.
+  if (token) await writeSession(event, { token, currentContext: context })
   return body
 })

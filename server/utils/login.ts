@@ -7,17 +7,27 @@ export interface LaravelLoginResponse {
   [k: string]: unknown
 }
 
-/** Separa el token (va a la sesión) del body que vuelve al cliente (sin token). */
+/** Pasos previos al token que Laravel puede exigir (todos traen user_id, sin token). */
+export const LOGIN_CHALLENGES = ['requires_otp', 'requires_2fa', 'requires_email_verification'] as const
+
+/** Separa el token (va a la sesión) del body que vuelve al cliente (sin token).
+ *  Sin token (cambio forzado / OTP / 2FA / verificación) se reenvía user_id y el
+ *  flag: el cliente lo necesita para el paso siguiente (antes se perdía). */
 export function normalizeLoginResponse(data: LaravelLoginResponse) {
   const token = data.token ?? data.access_token
-  return {
-    token,
-    body: {
-      user: data.user ?? null,
-      contexts: data.contexts ?? [],
-      requires_password_change: data.requires_password_change ?? false,
-    },
+  const body: Record<string, unknown> = {
+    user: data.user ?? null,
+    contexts: data.contexts ?? [],
+    requires_password_change: data.requires_password_change ?? false,
   }
+  for (const k of LOGIN_CHALLENGES) if (data[k]) body[k] = true
+  if (!token && data.user_id != null) body.user_id = data.user_id
+  return { token, body }
+}
+
+/** true si la respuesta es un paso previo (no hay sesión que sellar). */
+export function isLoginChallenge(body: Record<string, unknown>): boolean {
+  return Boolean(body.requires_password_change) || LOGIN_CHALLENGES.some(k => body[k])
 }
 
 /**
