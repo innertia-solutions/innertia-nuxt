@@ -29,8 +29,10 @@ export const useOrganizationStore = defineStore('organization', {
     {
       key: 'innertia_org_by_ctx',
       pick: ['currentByContext'],
-      storage: piniaPluginPersistedstate.cookies,
-      cookieOptions: { maxAge: 60 * 60 * 24 * 30, sameSite: 'lax' },
+      // pinia-plugin-persistedstate v4: `cookies(...)` es una fábrica que recibe las
+      // opciones. Pasarla sin llamar (API v3 + `cookieOptions`) deja un storage inválido
+      // y la sede elegida nunca se guarda: cada recarga vuelve al selector de sede.
+      storage: piniaPluginPersistedstate.cookies({ maxAge: 60 * 60 * 24 * 30, sameSite: 'lax' }),
     },
   ],
 
