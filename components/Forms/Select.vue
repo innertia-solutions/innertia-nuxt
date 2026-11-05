@@ -79,6 +79,26 @@ onMounted(() => {
   initHsSelect()
 })
 
+/**
+ * Si las options llegan o cambian después del mount (query async), HSSelect ya
+ * construyó su dropdown con las viejas (vacío) y no se entera. Se destruye y se
+ * vuelve a inicializar con las nuevas, conservando el valor seleccionado.
+ */
+watch(
+  () => (props.options ?? []).map((o: any) => `${o.value}::${o.label}::${o.disabled ? 1 : 0}`).join('|'),
+  async () => {
+    const el = selectRef.value
+    const HSSelect = (window as any).HSSelect
+    if (!el || !HSSelect) return
+    try {
+      HSSelect.getInstance?.(el)?.destroy?.()
+    } catch (e) {
+      console.warn('[FormsSelect] HSSelect destroy falló:', e)
+    }
+    await initHsSelect()
+  },
+)
+
 const handleChange = (e: Event) => {
   const val = (e.target as HTMLSelectElement).value
   emit('update:modelValue', val || null)
