@@ -8,7 +8,7 @@ export interface StorageTestDeps {
     patch: (path: string, body?: any, opts?: any) => Promise<any>
     delete: (path: string, opts?: any) => Promise<any>
   }
-  upload: (endpoint: string, file: File, opts?: { extraData?: Record<string, any> }) => Promise<any>
+  upload: (endpoint: string, file: File, opts?: { extraData?: Record<string, any>, signal?: AbortSignal }) => Promise<any>
   fetchFn: (url: string, init?: RequestInit) => Promise<Response>
   hash: (blob: Blob) => Promise<string>
 }
@@ -20,7 +20,11 @@ export interface StorageTestOptions {
   expectedDisk?: string | null
   /** Incluir el paso de permisos (grants). */
   grants?: boolean
-  /** Campos grantable_* para backends que no resuelven el grantee solos. */
+  /**
+   * Campos del grantee: `{ grantable_type, grantable_id, grantable_class }`.
+   * Obligatorio salvo que el backend rellene por defecto el usuario autenticado
+   * (como hace el controlador de platform de sumando).
+   */
   grantee?: Record<string, string> | null
 }
 
@@ -37,6 +41,8 @@ export interface StorageTestCtx extends StorageTestDeps, StorageTestOptions {
   file: File
   stamp: string
   state: StorageTestState
+  /** Abort en vuelo: se pasa a upload y a los fetch (la limpieza no lo usa). */
+  signal?: AbortSignal
 }
 
 const unwrap = (r: any) => r?.data ?? r
@@ -51,8 +57,27 @@ function extOf(name: string): string {
   return i > 0 ? name.slice(i) : ''
 }
 
+/** fetch sin caché HTTP (el backend sirve públicos con max-age) y con abort. Sin query params: rompería firmas. */
+function noCacheFetch(c: StorageTestCtx, url: string, credentials: RequestCredentials): Promise<Response> {
+  return c.fetchFn(url, { credentials, cache: 'no-store', signal: c.signal })
+}
+
+/** Para verificaciones negativas: un TypeError de red = no se pudo verificar (típico: otro origen/CORS). */
+async function negativeFetch(c: StorageTestCtx, url: string, credentials: RequestCredentials): Promise<Response> {
+  try {
+    return await noCacheFetch(c, url, credentials)
+  } catch (e) {
+    if (e instanceof TypeError) {
+      throw new Error('No se pudo verificar: la URL apunta a otro origen (revisa que APP_URL sea el origen del frontend).')
+    }
+    throw e
+  }
+}
+
+const baseMime = (m?: string | null) => (m ?? '').split(';')[0].trim().toLowerCase()
+
 async function expectFetchOk(c: StorageTestCtx, url: string, credentials: RequestCredentials): Promise<Response> {
-  const res = await c.fetchFn(url, { credentials })
+  const res = await noCacheFetch(c, url, credentials)
   if (!res.ok) throw new Error(`HTTP ${res.status} al pedir ${url.split('?')[0]}`)
   return res
 }
@@ -77,7 +102,7 @@ export function buildStorageSteps(): StepDef<StorageTestCtx>[] {
     {
       id: 'upload', label: 'Subir tu archivo', dependsOn: ['create-dir'],
       run: async (c) => {
-        const f = unwrap(await c.upload(c.filesBase, c.file, { extraData: { directory_id: c.state.dirId, visibility: 'auth' } }))
+        const f = unwrap(await c.upload(c.filesBase, c.file, { extraData: { directory_id: c.state.dirId, visibility: 'auth' }, signal: c.signal }))
         if (!f?.id) throw new Error('El backend no devolvió el id del archivo.')
         c.state.fileId = f.id
         c.state.file = f
@@ -103,7 +128,15 @@ export function buildStorageSteps(): StepDef<StorageTestCtx>[] {
       id: 'preview', label: 'Vista previa con URL firmada', dependsOn: ['upload'],
       run: async (c) => {
         const res = await expectFetchOk(c, c.state.file.view_url, 'include')
-        return `200 · ${res.headers.get('content-type') ?? 'sin content-type'}`
+        const got = res.headers.get('content-type')
+        const want = c.state.file.mime_type
+        if (baseMime(got) === 'application/octet-stream' && baseMime(want) !== 'application/octet-stream') {
+          return `200 · application/octet-stream (el backend fuerza este tipo; esperado ${baseMime(want) || 'desconocido'})`
+        }
+        if (want && baseMime(got) !== baseMime(want)) {
+          throw new Error(`Content-Type "${got ?? 'ausente'}" no coincide con "${want}".`)
+        }
+        return `200 · ${got ?? 'sin content-type'}`
       },
     },
     {
@@ -134,8 +167,10 @@ export function buildStorageSteps(): StepDef<StorageTestCtx>[] {
       id: 'make-private', label: 'Volver a privado (la URL pública deja de responder)', dependsOn: ['make-public'],
       run: async (c) => {
         await setVisibility(c, 'auth')
-        const res = await c.fetchFn(c.state.publicUrl!, { credentials: 'omit' })
-        if (res.ok) throw new Error('La URL pública sigue respondiendo 200 después de pasar a privado.')
+        const res = await negativeFetch(c, c.state.publicUrl!, 'omit')
+        if (res.ok) {
+          throw new Error('La URL pública sigue respondiendo 200 después de pasar a privado (si hay CDN delante, puede servir la versión pública cacheada hasta 24 h).')
+        }
         return `URL pública ahora responde ${res.status}`
       },
     },
@@ -157,6 +192,7 @@ export function buildStorageSteps(): StepDef<StorageTestCtx>[] {
         await setVisibility(c, 'restricted')
         try {
           const g = unwrap(await c.api.post(base, { ...who, action: 'view' }))
+          if (!g?.id) throw new Error('El backend no devolvió el id del permiso.')
           const listed = unwrap(await c.api.get(base)) ?? []
           if (!listed.some((x: any) => x.id === g?.id)) throw new Error('El permiso creado no aparece en la lista.')
           await c.api.delete(base, { params: { ...who, action: 'view' } })
@@ -190,9 +226,9 @@ export function buildStorageSteps(): StepDef<StorageTestCtx>[] {
       id: 'trash', label: 'Enviar a la papelera', dependsOn: ['upload'],
       run: async (c) => {
         await c.api.delete(`${c.filesBase}/${c.state.fileId}`)
-        const list = unwrap(await c.api.get(`${c.filesBase}/trash`, { params: { search: c.state.file.original_name } })) ?? []
-        if (!list.some((f: any) => f.id === c.state.fileId)) throw new Error('No aparece en la papelera.')
-        return 'Aparece en la papelera'
+        const f = unwrap(await c.api.get(`${c.filesBase}/${c.state.fileId}`))
+        if (!f?.deleted_at) throw new Error('El archivo no quedó marcado como eliminado.')
+        return 'Marcado como eliminado (en papelera)'
       },
     },
     {
@@ -218,7 +254,7 @@ export function buildStorageSteps(): StepDef<StorageTestCtx>[] {
           if (e?.status !== 404) throw e
         }
         if (stillThere) throw new Error('El archivo sigue existiendo después del borrado definitivo.')
-        const res = await c.fetchFn(oldUrl, { credentials: 'include' })
+        const res = await negativeFetch(c, oldUrl, 'include')
         if (res.ok) throw new Error('La URL de descarga sigue entregando el archivo.')
         return `Eliminado (descarga ahora responde ${res.status})`
       },
@@ -228,6 +264,7 @@ export function buildStorageSteps(): StepDef<StorageTestCtx>[] {
       run: async (c) => {
         const problems: string[] = []
         if (c.state.fileId && !c.state.hardDeleted) {
+          await c.api.patch(`${c.filesBase}/${c.state.fileId}`, { visibility: 'auth' }).catch(() => {})
           await c.api.delete(`${c.filesBase}/${c.state.fileId}`, { params: { force: 1 } })
             .catch((e: any) => problems.push(`archivo: ${e?.data?.message ?? e?.message}`))
         }

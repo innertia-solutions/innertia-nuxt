@@ -6,16 +6,17 @@ const props = defineProps({
   directoriesBase: { type: String, required: true },
   expectedDisk: { type: String, default: null },
   grants: { type: Boolean, default: true },
+  /** `{ grantable_type, grantable_id, grantable_class }`; obligatorio salvo que el backend use por defecto el usuario autenticado. */
   grantee: { type: Object, default: null },
 })
 
-const { results, running, summary, run, abort } = useStorageTestRunner({
+const { results, running, summary, run, abort } = useStorageTestRunner(() => ({
   filesBase: props.filesBase,
   directoriesBase: props.directoriesBase,
   expectedDisk: props.expectedDisk,
   grants: props.grants,
   grantee: props.grantee,
-})
+}))
 
 const api = useApi()
 const { upload } = useFile()
@@ -50,6 +51,14 @@ async function uploadSample() {
   } catch (e) {
     toast.error(e?.data?.message ?? 'No se pudo subir.')
   } finally { sampleBusy.value = false }
+}
+async function downloadSample() {
+  // Las URLs firmadas expiran (~15 min): pedir una fresca al hacer clic.
+  try {
+    const res = await api.get(`${props.filesBase}/${sample.value.id}`)
+    const fresh = res?.data ?? res
+    window.location.href = fresh.download_url
+  } catch (e) { toast.error(e?.data?.message ?? 'No se pudo descargar.') }
 }
 async function deleteSample() {
   try {
@@ -94,7 +103,7 @@ const COLORS = {
         <span class="text-foreground truncate">{{ sample.original_name }}</span>
         <span class="text-muted-foreground">disco: {{ sample.disk }}</span>
         <span class="grow" />
-        <a :href="sample.download_url" class="inline-flex items-center gap-1 text-primary hover:underline"><IconDownload class="size-3.5" /> Descargar</a>
+        <button type="button" class="inline-flex items-center gap-1 text-primary hover:underline" @click="downloadSample"><IconDownload class="size-3.5" /> Descargar</button>
         <button type="button" class="inline-flex items-center gap-1 text-red-600 hover:underline" @click="deleteSample"><IconTrash class="size-3.5" /> Borrar</button>
       </div>
     </div>

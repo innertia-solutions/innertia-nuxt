@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { runSteps, type StepResult } from './internal/engine'
 import { buildStorageSteps, sha256Hex, type StorageTestOptions } from './internal/steps'
 
@@ -8,7 +8,7 @@ export type { StepResult, StepStatus } from './internal/engine'
  * Pruebas de almacenamiento de punta a punta contra la API real de Files,
  * con un archivo elegido por el usuario. Ver <Files.StorageTestRunner>.
  */
-export function useStorageTestRunner(options: StorageTestOptions) {
+export function useStorageTestRunner(options: MaybeRefOrGetter<StorageTestOptions>) {
   const api = useApi()
   const { upload } = useFile()
 
@@ -32,10 +32,11 @@ export function useStorageTestRunner(options: StorageTestOptions) {
         {
           api, upload, hash: sha256Hex,
           fetchFn: (url: string, init?: RequestInit) => fetch(url, init),
-          ...options,
+          ...toValue(options),
           file,
           stamp: new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14),
           state: {},
+          signal: controller.signal,
         },
         (r) => { results.value = r },
         controller.signal,

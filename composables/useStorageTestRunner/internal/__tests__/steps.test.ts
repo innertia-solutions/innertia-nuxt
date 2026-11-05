@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { runSteps } from '../engine'
 import { buildStorageSteps, sha256Hex, type StorageTestCtx } from '../steps'
 
-type Opts = { disk?: string, corrupt?: boolean, leakPublic?: boolean }
+type Opts = { disk?: string, corrupt?: boolean, leakPublic?: boolean, grantNoId?: boolean, trashListThrows?: boolean }
 
 function httpError(status: number, message = 'error') {
   return Object.assign(new Error(`API error ${status}`), { status, data: { message } })
@@ -15,6 +15,9 @@ function fakeBackend(opts: Opts = {}) {
   const files = new Map<string, any>()
   const blobs = new Map<string, Blob>()
   const grants = new Map<string, any[]>()
+  const patches: { id: string, body: any }[] = []
+  const fetchInits: any[] = []
+  const ops: string[] = []
 
   const present = (f: any) => {
     const pub = f.visibility === 'public'
@@ -30,6 +33,7 @@ function fakeBackend(opts: Opts = {}) {
     async get(path: string, o: any = {}) {
       let m
       if ((m = path.match(/^files\/trash$/))) {
+        if (opts.trashListThrows) throw new Error('la lista de papelera no debe usarse')
         const q = o.params?.search ?? ''
         return { data: [...files.values()].filter(f => f.deleted_at && f.original_name.includes(q)).map(present) }
       }
@@ -43,7 +47,7 @@ function fakeBackend(opts: Opts = {}) {
       if (path === 'dirs') { const d = { id: nextId(), name: body.name }; dirs.set(d.id, d); return { data: d } }
       if ((m = path.match(/^files\/(\w+)\/restore$/))) { const f = fileOr404(m[1]); f.deleted_at = null; return { data: present(f) } }
       if ((m = path.match(/^files\/(\w+)\/grants$/))) {
-        fileOr404(m[1]); const g = { id: nextId(), action: body.action }
+        fileOr404(m[1]); const g: any = { id: opts.grantNoId ? undefined : nextId(), action: body.action }
         grants.set(m[1], [...(grants.get(m[1]) ?? []), g]); return { data: g }
       }
       throw httpError(404)
@@ -51,7 +55,7 @@ function fakeBackend(opts: Opts = {}) {
     async patch(path: string, body: any = {}) {
       let m
       if ((m = path.match(/^dirs\/(\w+)$/))) { const d = dirs.get(m[1]); Object.assign(d, body); return { data: d } }
-      if ((m = path.match(/^files\/(\w+)$/))) { const f = fileOr404(m[1]); Object.assign(f, body); return { data: present(f) } }
+      if ((m = path.match(/^files\/(\w+)$/))) { const f = fileOr404(m[1]); patches.push({ id: m[1], body }); Object.assign(f, body); return { data: present(f) } }
       throw httpError(404)
     },
     async delete(path: string, o: any = {}) {
@@ -66,6 +70,7 @@ function fakeBackend(opts: Opts = {}) {
       }
       if ((m = path.match(/^files\/(\w+)$/))) {
         const f = fileOr404(m[1])
+        ops.push(o.params?.force ? `force:${m[1]}` : `soft:${m[1]}`)
         if (o.params?.force) { files.delete(f.id); blobs.delete(f.id) } else f.deleted_at = '2026-11-04T00:00:00Z'
         return ''
       }
@@ -85,7 +90,8 @@ function fakeBackend(opts: Opts = {}) {
     return { data: present(f) }
   }
 
-  async function fetchFn(url: string) {
+  async function fetchFn(url: string, init?: any) {
+    fetchInits.push(init)
     const m = url.match(/^\/files\/(\w+)\/(view|download)(\?signature=\w+)?$/)
     const f = m && files.get(m[1])
     if (!m || !f) return new Response('', { status: 404 })
@@ -94,7 +100,7 @@ function fakeBackend(opts: Opts = {}) {
     return new Response(blobs.get(f.id)!, { status: 200, headers: { 'content-type': f.mime_type } })
   }
 
-  return { api, upload, fetchFn, dirs, files }
+  return { api, upload, fetchFn, dirs, files, patches, fetchInits, ops }
 }
 
 function ctxFor(be: ReturnType<typeof fakeBackend>, over: Partial<StorageTestCtx> = {}): StorageTestCtx {
@@ -146,6 +152,69 @@ describe('buildStorageSteps', () => {
   it('URL pública que sigue respondiendo tras volver a privado: falla make-private', async () => {
     const res = await run(ctxFor(fakeBackend({ leakPublic: true })))
     expect(res.find(r => r.id === 'make-private')!.status).toBe('failed')
+  })
+
+  it('C1: todos los fetch van con cache no-store', async () => {
+    const be = fakeBackend()
+    await run(ctxFor(be))
+    expect(be.fetchInits.length).toBeGreaterThan(4)
+    expect(be.fetchInits.every(i => i?.cache === 'no-store')).toBe(true)
+  })
+
+  it('I2: un permiso devuelto sin id hace fallar grants', async () => {
+    const res = await run(ctxFor(fakeBackend({ grantNoId: true })))
+    const g = res.find(r => r.id === 'grants')!
+    expect(g.status).toBe('failed')
+    expect(g.detail).toContain('id del permiso')
+  })
+
+  it('M1: la papelera se verifica por GET del archivo, no por la lista', async () => {
+    const res = await run(ctxFor(fakeBackend({ trashListThrows: true })))
+    expect(res.find(r => r.id === 'trash')!.status).toBe('ok')
+  })
+
+  it('M2: TypeError de red en check negativo da error claro', async () => {
+    const be = fakeBackend()
+    const orig = be.fetchFn
+    let calls = 0
+    const ctx = ctxFor(be, { fetchFn: (async (u: string, i: any) => {
+      if (u.endsWith('/view') && ++calls > 0) throw new TypeError('Failed to fetch')
+      return orig(u, i)
+    }) as any })
+    const res = await run(ctx)
+    const mp = res.find(r => r.id === 'make-public')!
+    expect(mp.status).toBe('failed') // make-public usa expectFetchOk (positivo)
+    const hd = res.find(r => r.id === 'hard-delete')!
+    expect(hd.status).toBe('ok')
+  })
+
+  it('M3: la limpieza intenta volver a privado y luego borra con force', async () => {
+    const be = fakeBackend()
+    let failedOnce = false
+    const api = { ...be.api, delete: async (path: string, o: any = {}) => {
+      if (o.params?.force && /^files\/\w+$/.test(path) && !failedOnce) { failedOnce = true; throw httpError(500, 'boom') }
+      return be.api.delete(path, o)
+    } }
+    const res = await run(ctxFor(be, { api }))
+    expect(res.find(r => r.id === 'hard-delete')!.status).toBe('failed')
+    expect(res.find(r => r.id === 'cleanup')!.status).toBe('ok')
+    expect(be.patches.at(-1)!.body).toEqual({ visibility: 'auth' })
+    expect(be.ops.at(-1)).toMatch(/^force:/)
+  })
+
+  it('M4: content-type distinto falla la vista previa; octet-stream pasa con nota', async () => {
+    const be = fakeBackend()
+    const bad = await run(ctxFor(be, { fetchFn: (async (u: string, i: any) => {
+      const r = await be.fetchFn(u, i); return u.includes('/view') && r.ok ? new Response(await r.blob(), { headers: { 'content-type': 'image/png' } }) : r
+    }) as any }))
+    expect(bad.find(r => r.id === 'preview')!.status).toBe('failed')
+    const be2 = fakeBackend()
+    const ok = await run(ctxFor(be2, { fetchFn: (async (u: string, i: any) => {
+      const r = await be2.fetchFn(u, i); return u.includes('/view') && r.ok ? new Response(await r.blob(), { headers: { 'content-type': 'application/octet-stream' } }) : r
+    }) as any }))
+    const p = ok.find(r => r.id === 'preview')!
+    expect(p.status).toBe('ok')
+    expect(p.detail).toContain('octet-stream')
   })
 
   it('grants=false: paso de permisos desactivado', async () => {
