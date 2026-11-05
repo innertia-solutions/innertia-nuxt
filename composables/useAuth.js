@@ -24,6 +24,27 @@ export function useAuth() {
     if (!data?.user && (data?.requires_password_change || data?.requires_otp || data?.requires_2fa || data?.requires_email_verification)) {
       return data
     }
+    return finishLogin(context, data)
+  }
+
+  /** Paso previo verificado: verificar código OTP del correo (sella la sesión). */
+  async function verifyOtp(context, userId, code) {
+    const data = await $fetch('/_auth/otp/verify', { method: 'POST', body: { context, user_id: userId, code } })
+    if (!data?.user) return data // siguiente paso (p. ej. requires_2fa)
+    return finishLogin(context, data)
+  }
+
+  /** Cambio de clave forzado pre-auth (con código OTP si se exige); sella la sesión. */
+  async function changeForcedPassword(context, userId, { password, passwordConfirmation, code } = {}) {
+    const data = await $fetch('/_auth/password/change', {
+      method: 'POST',
+      body: { context, user_id: userId, code, password, password_confirmation: passwordConfirmation },
+    })
+    if (!data?.user) return data
+    return finishLogin(context, data)
+  }
+
+  async function finishLogin(context, data) {
     authStore.setAuthenticated(true)
     if (data.user) authStore.saveUser(data.user)
     authStore.setCurrentContext(context)
@@ -99,5 +120,5 @@ export function useAuth() {
     return data.url ?? data
   }
 
-  return { performLogin, fetchMe, logout, getOauthRedirectUrl }
+  return { performLogin, verifyOtp, changeForcedPassword, fetchMe, logout, getOauthRedirectUrl }
 }
