@@ -29,7 +29,7 @@ export default defineNuxtConfig({
     { path: './components', pathPrefix: true, prefix: '' },
   ],
   imports: {
-    dirs: ['stores', 'composables', 'composables/useWorkflow', 'composables/useStorageTestRunner'],
+    dirs: ['stores', 'composables', 'composables/useWorkflow', 'composables/useStorageTestRunner', 'composables/useNotificationHistory'],
     presets: [
       {
         from: '@tanstack/vue-query',
