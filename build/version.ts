@@ -51,6 +51,17 @@ function gitCommit(rootDir: string): string {
   }
 }
 
+/** Dev local: VERSION en la raíz del monorepo (padre del front) → "vX.Y.Z-dev". */
+function devVersion(rootDir: string): string {
+  try {
+    const path = join(rootDir, '..', 'VERSION')
+    const semver = existsSync(path) ? readFileSync(path, 'utf8').trim() : ''
+    return /^\d+\.\d+\.\d+$/.test(semver) ? `v${semver}-dev` : ''
+  } catch {
+    return ''
+  }
+}
+
 /**
  * Prioridad por campo: env de build (APP_COMMIT / APP_BUILD_DATE / APP_VERSION)
  * → build-info.json en rootDir (lo escribe el Dockerfile) → fallback
@@ -67,7 +78,7 @@ export function collectBuildVersion(
 
   return {
     app: str(product.name),
-    version: str(env.APP_VERSION) || str(info.version) || str(product.version),
+    version: str(env.APP_VERSION) || str(info.version) || devVersion(rootDir) || str(product.version),
     commit: str(env.APP_COMMIT) || str(info.commit) || (opts.git === false ? '' : gitCommit(rootDir)),
     buildDate: str(env.APP_BUILD_DATE) || str(info.build_date) || new Date().toISOString(),
     packages: readPackageVersions(rootDir, opts.packages ?? DEFAULT_FRONT_PACKAGES),

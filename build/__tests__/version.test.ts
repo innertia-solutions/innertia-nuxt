@@ -42,4 +42,19 @@ describe('collectBuildVersion', () => {
     expect(v.commit).toBe('')
     expect(Number.isNaN(Date.parse(v.buildDate))).toBe(false)
   })
+
+  it('sin APP_VERSION ni build-info usa VERSION del monorepo (../VERSION) como vX.Y.Z-dev', () => {
+    const front = join(root, 'frontend')
+    pkg(front, { name: 'acme-front', version: '9.9.9' })
+    writeFileSync(join(root, 'VERSION'), '1.0.2\n')
+    expect(collectBuildVersion(front, {}, { git: false, packages: [] }).version).toBe('v1.0.2-dev')
+  })
+
+  it('APP_VERSION tiene precedencia sobre VERSION', () => {
+    const front = join(root, 'frontend')
+    pkg(front, { name: 'acme-front' })
+    writeFileSync(join(root, 'VERSION'), '1.0.2\n')
+    expect(collectBuildVersion(front, { APP_VERSION: 'v1.0.2-20261111.3' }, { git: false, packages: [] }).version)
+      .toBe('v1.0.2-20261111.3')
+  })
 })
