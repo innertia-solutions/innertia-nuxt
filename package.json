@@ -34,6 +34,7 @@
     "@floating-ui/dom": "^1.7.6",
     "@nuxtjs/seo": "^3.4.0",
     "@pinia/nuxt": "^0.11.3",
+    "@simplewebauthn/browser": "^13.3.0",
     "@tabler/icons-vue": "^3.44.0",
     "@tailwindcss/aspect-ratio": "^0.4.2",
     "@tailwindcss/forms": "^0.5.10",
@@ -48,14 +49,14 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dayjs": "^1.11.0",
+    "iron-webcrypto": "^1.2.1",
     "pinia-plugin-persistedstate": "^4.7.1",
     "preline": "^3.2.3",
     "pusher-js": "^8.5.0",
     "tailwindcss": "^4.0.0",
     "uuid": "^13.0.0",
     "vanilla-calendar-pro": "^3.1.0",
-    "vue3-apexcharts": "^1.11.1",
-    "iron-webcrypto": "^1.2.1"
+    "vue3-apexcharts": "^1.11.1"
   },
   "scripts": {
     "test": "vitest run"
