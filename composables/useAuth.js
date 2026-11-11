@@ -14,6 +14,10 @@ export function useAuth() {
    */
   async function performLogin(context, email, password, remember = false) {
     authStore.rememberUser = remember
+    // Un ingreso con contraseña borra la marca de "ingresó con passkey" (la invitación vuelve a aparecer).
+    if (import.meta.client) {
+      try { sessionStorage.removeItem('innertia:logged-in-with-passkey') } catch {}
+    }
     // Sella la sesión en el server (Nitro). Devuelve user+contexts, SIN token.
     const data = await $fetch('/_auth/login', {
       method: 'POST',
@@ -120,5 +124,5 @@ export function useAuth() {
     return data.url ?? data
   }
 
-  return { performLogin, verifyOtp, changeForcedPassword, fetchMe, logout, getOauthRedirectUrl }
+  return { performLogin, verifyOtp, changeForcedPassword, finishLogin, fetchMe, logout, getOauthRedirectUrl }
 }
