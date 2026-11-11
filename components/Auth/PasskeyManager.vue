@@ -6,7 +6,7 @@ const props = defineProps({
   base: { type: String, default: 'auth' },
 })
 
-const passkeys = usePasskeys()
+const passkeys = usePasskeys({ platform: props.base === 'platform/auth' })
 const toast = useToast()
 const { confirm } = useModal()
 const items = ref([])
@@ -22,6 +22,10 @@ const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('es-CL', { day: 'num
 async function load() {
   loading.value = true
   loadError.value = ''
+  if (!(await passkeys.ensureEnabled())) {
+    loading.value = false
+    return
+  }
   try {
     items.value = await passkeys.list(props.base)
   } catch (e) {
@@ -99,7 +103,7 @@ onMounted(load)
         <p class="mt-0.5 text-xs text-muted-foreground">Ingresa con tu huella, rostro o PIN del dispositivo, sin contraseña.</p>
       </div>
       <App.Button
-        v-if="passkeys.ready.value && passkeys.supported.value"
+        v-if="passkeys.ready.value && passkeys.available.value"
         text="Agregar en este dispositivo"
         :icon="IconPlus"
         severity="primary"
@@ -110,6 +114,10 @@ onMounted(load)
     </div>
 
     <div v-if="!passkeys.ready.value" class="px-5 py-6 text-sm text-muted-foreground">Cargando…</div>
+
+    <p v-else-if="!passkeys.enabled.value" class="px-5 py-4 text-sm text-muted-foreground">
+      El ingreso con passkey está desactivado.
+    </p>
 
     <p v-else-if="!passkeys.supported.value" class="px-5 py-4 text-sm text-muted-foreground">
       Este navegador no permite usar passkeys.

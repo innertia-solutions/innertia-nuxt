@@ -1,4 +1,4 @@
-import { ref, getCurrentInstance, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, getCurrentInstance, onMounted, onBeforeUnmount } from 'vue'
 import {
   startAuthentication,
   startRegistration,
@@ -16,6 +16,7 @@ import {
   WEBAUTHN_INPUT_SELECTOR,
 } from './internal/passkeys'
 import { createRunGuard } from './internal/runGuard'
+import { createStatusCache } from './internal/statusCache'
 
 // Solo se exporta el composable (los helpers de ./internal no se auto-importan).
 
@@ -32,6 +33,9 @@ function supportsAutofill(): Promise<boolean> {
   autofillSupport ??= browserSupportsWebAuthnAutofill().catch(() => false)
   return autofillSupport
 }
+
+/** Estado del interruptor de plataforma: una consulta por base durante la vida de la página. */
+const statusCaches = createStatusCache()
 
 function debug(...args: any[]) {
   if (import.meta.dev) console.debug('[passkeys]', ...args)
@@ -51,12 +55,21 @@ export interface PasskeyItem {
  *    (/_auth/passkey/login) que sella la sesión solo si hay token.
  *  - Gestión propia: base 'auth' (tenant) o 'platform/auth' (cuenta de plataforma).
  *
+ * Interruptor: el backend lo guarda en BD y lo expone en `GET auth/passkey/status`
+ * (o `platform/auth/passkey/status`). `usePasskeys({ platform: true })` consulta el de
+ * plataforma; sin opciones, el de tenant. `enabled` es false hasta saberlo y
+ * `available` = supported && enabled. Con el interruptor apagado, login/autocompletado/
+ * registro no hacen nada (el autocompletado devuelve null; el resto lanza un error legible).
+ * La administración por usuario (listForUser/revokeAll) sigue funcionando.
+ *
  * Llamar durante el setup de un componente: `supported`/`autofillSupported` se
  * resuelven en onMounted (false en SSR y en el primer render → sin hydration
  * mismatch) y el autocompletado se libera en onBeforeUnmount.
  */
-export function usePasskeys() {
+export function usePasskeys({ platform: platformStatus = false }: { platform?: boolean } = {}) {
   const api = useApi()
+  const statusBase = platformStatus ? 'platform/auth' : 'auth'
+  const statusCache = statusCaches.for(base => api.get(`${base}/passkey/status`))
   const authStore = useAuthStore()
   const { finishLogin } = useAuth()
 
@@ -64,10 +77,38 @@ export function usePasskeys() {
   const autofillSupported = ref(false)
   /** true una vez resuelto el soporte en el cliente (para no mostrar "no soportado" antes de tiempo). */
   const ready = ref(false)
+  /** Interruptor de plataforma (false hasta conocerse y ante cualquier fallo). */
+  const enabled = ref(false)
+  /** Soporte del navegador Y interruptor encendido: lo que decide si se ofrece la función. */
+  const available = computed(() => supported.value && enabled.value)
+
+  /** Resuelve (con caché) el interruptor y lo refleja en `enabled`. */
+  async function ensureEnabled(): Promise<boolean> {
+    if (!import.meta.client) return false
+    enabled.value = await statusCache.get(statusBase)
+    return enabled.value
+  }
+
+  /** Descarta la caché (tras guardar el interruptor en /platform) y lo vuelve a leer. */
+  async function refreshStatus(): Promise<boolean> {
+    statusCache.reset()
+    return ensureEnabled()
+  }
+
+  function disabledError() {
+    return Object.assign(new Error('El ingreso con passkey está desactivado.'), {
+      data: { message: 'El ingreso con passkey está desactivado.' },
+    })
+  }
+
+  async function assertEnabled() {
+    if (!(await ensureEnabled())) throw disabledError()
+  }
 
   async function detectSupport() {
     supported.value = browserSupportsWebAuthn()
     autofillSupported.value = await supportsAutofill()
+    await ensureEnabled()
     ready.value = true
   }
 
@@ -133,6 +174,7 @@ export function usePasskeys() {
   async function authenticate(platform: boolean, contexts: string[]) {
     assertContexts(platform, contexts)
     stopAutofill()
+    await assertEnabled()
     const { key, options } = await fetchLoginOptions(platform)
     const response = await startAuthentication({ optionsJSON: options })
     return verify(platform, contexts, key, response)
@@ -161,6 +203,9 @@ export function usePasskeys() {
     const id = guard.next()
 
     if (!(await supportsAutofill())) return null
+    if (!guard.isCurrent(id)) return null
+    // Interruptor apagado (o sin respuesta): silencio, sin pedir opciones.
+    if (!(await statusCache.get(platform ? 'platform/auth' : 'auth'))) return null
     if (!guard.isCurrent(id)) return null
 
     while (guard.isCurrent(id)) {
@@ -247,6 +292,7 @@ export function usePasskeys() {
   }
 
   async function register(name?: string, base = 'auth'): Promise<PasskeyItem> {
+    if (!(await statusCache.get(base))) throw disabledError()
     const res: any = await api.post(`${base}/me/passkeys/options`)
     if (!res?.key || !res?.options) throw sessionError()
     const response = await startRegistration({ optionsJSON: res.options })
@@ -276,6 +322,10 @@ export function usePasskeys() {
     supported,
     autofillSupported,
     ready,
+    enabled,
+    available,
+    ensureEnabled,
+    refreshStatus,
     login,
     loginPlatform,
     startAutofill,

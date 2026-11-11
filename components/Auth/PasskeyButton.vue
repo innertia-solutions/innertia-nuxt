@@ -6,6 +6,8 @@ import { IconFingerprint } from '@tabler/icons-vue'
 //    sin contexts el composable lanza 'PasskeyButton requiere contexts' antes de
 //    cualquier ceremonia (el backend exige al menos uno).
 //  - platform: login de /platform.
+//  - Solo se muestra si el navegador lo soporta y el interruptor de plataforma está
+//    encendido (GET auth/passkey/status); si no, no renderiza nada.
 //  - autofill: además arranca el autocompletado (el campo de correo del form
 //    debe tener autocomplete="username webauthn"; sin ese input no arranca).
 // Emite success(data) con el body del BFF (data.context; data.tenantDestination
@@ -25,7 +27,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['success', 'pending', 'error'])
 
-const passkeys = usePasskeys()
+const passkeys = usePasskeys({ platform: props.platform })
 const loading = ref(false)
 const error = ref('')
 let mounted = false
@@ -86,7 +88,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="passkeys.supported.value" class="space-y-2">
+  <div v-if="passkeys.available.value" class="space-y-2">
     <button
       type="button"
       :disabled="loading"

@@ -4,11 +4,16 @@ Ingreso con huella, rostro o llave de seguridad sobre `\Innertia\Passkeys` de in
 
 ## Requisitos (backend Laravel)
 
-1. En el `.env` del producto: `PASSKEYS_ENABLED=true`.
-2. `php artisan migrate` (crea la tabla de passkeys).
-3. `PASSKEYS_RP_ID` = host del **front** (en dev, `localhost`; en prod, por ejemplo `app.pomely.cl`). Los orígenes permitidos por defecto son la URL del front.
-4. Si los tenants viven en subdominios: `PASSKEYS_ALLOW_SUBDOMAINS=true`.
+1. `php artisan migrate` (crea la tabla de passkeys y la de configuración).
+2. **Activación:** el ingreso con passkey viene **encendido por defecto** y se controla desde la consola `/platform` con `<Auth.PasskeySettings />` (interruptores "Ingreso con passkey" y "Permitir subdominios"; se guardan en BD). No hay variables de entorno. El producto registra las rutas en su grupo platform: `\Innertia\Passkeys\Routes::platformSettings('')`.
+3. El front consulta `GET auth/passkey/status` (o `platform/auth/passkey/status`, con `usePasskeys({ platform: true })`) y solo ofrece la función si responde `{ enabled: true }`; el resultado se cachea por página y un fallo cuenta como desactivado. Con el interruptor apagado el backend responde 404 en login y autogestión, pero `users/{id}/passkeys` (administración) sigue funcionando para revocar.
+4. El dominio (`rp_id`) y los orígenes se derivan de la URL del front; `<Auth.PasskeySettings />` los muestra en solo lectura.
 5. El cache store de Laravel debe ser **compartido** entre instancias (Redis); las opciones de la ceremonia se guardan ahí.
+
+```vue
+<!-- pages/platform/settings/passkeys.vue -->
+<template><Auth.PasskeySettings /></template>
+```
 
 Notas:
 
@@ -86,7 +91,9 @@ El ingreso de plataforma siempre devuelve token (no hay `pending`). Si la cuenta
 
 | Método | Uso |
 |--------|-----|
-| `supported`, `autofillSupported`, `ready` | refs con el soporte del navegador; `false` en SSR y en el primer render, se resuelven en `onMounted` (`ready` indica que ya se resolvió) |
+| `usePasskeys({ platform })` | `platform: true` usa el estado de `platform/auth/passkey/status`; por defecto el de tenant (`auth/passkey/status`) |
+| `supported`, `autofillSupported`, `enabled`, `available`, `ready` | refs; `false` en SSR y en el primer render, se resuelven en `onMounted` (`ready` indica que ya se resolvió). `enabled` = interruptor de plataforma; `available` = `supported && enabled` |
+| `ensureEnabled()`, `refreshStatus()` | lee el interruptor (con caché) / descarta la caché y lo relee (tras guardar en `/platform`) |
 | `login({ contexts })`, `loginPlatform()` | ceremonia de ingreso (tenant / plataforma) |
 | `startAutofill({ contexts, platform })`, `stopAutofill()`, `dispose()` | autocompletado (conditional UI); se libera solo al desmontar el componente que llamó a `usePasskeys()` |
 | `list(base)`, `register(name?, base)`, `rename(id, name, base)`, `remove(id, base)` | gestión propia |

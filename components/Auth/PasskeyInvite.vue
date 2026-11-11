@@ -8,7 +8,7 @@ const props = defineProps({
   base: { type: String, default: 'auth' },
 })
 
-const passkeys = usePasskeys()
+const passkeys = usePasskeys({ platform: props.base === 'platform/auth' })
 const authStore = useAuthStore()
 const toast = useToast()
 const visible = ref(false)
@@ -28,11 +28,13 @@ function dismiss() {
 // usePasskeys resuelve `supported` en su propio onMounted, que corre antes que este.
 onMounted(async () => {
   if (!userId.value || !passkeys.supported.value) return
+  // Interruptor apagado: ni se consulta la lista.
+  if (!(await passkeys.ensureEnabled())) return
   let hasPasskeys = true
   try { hasPasskeys = (await passkeys.list(props.base)).length > 0 } catch { return }
   visible.value = shouldShowPasskeyInvite({
     supported: passkeys.supported.value,
-    enabled: true,
+    enabled: passkeys.enabled.value,
     dismissed: dismissed(),
     hasPasskeys,
     loggedInWithPasskey: passkeys.loggedInWithPasskey(),
