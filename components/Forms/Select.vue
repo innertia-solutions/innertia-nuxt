@@ -65,6 +65,9 @@ const initHsSelect = async () => {
       return
     }
     if (HSSelect.getInstance?.(el)) return
+    // HSSelect toma el valor inicial de el.value: si las <option> llegaron después
+    // del binding :value, el nativo puede haber quedado en ''. Se re-aplica.
+    el.value = props.modelValue === null || props.modelValue === undefined ? '' : String(props.modelValue)
     try {
       new HSSelect(el)
     } catch (e) {
@@ -96,6 +99,28 @@ watch(
       console.warn('[FormsSelect] HSSelect destroy falló:', e)
     }
     await initHsSelect()
+  },
+)
+
+/**
+ * Si el valor llega o cambia desde afuera después del mount (ej. formulario de
+ * edición que hidrata con datos async), HSSelect conserva el valor con que se
+ * inicializó y el toggle sigue mostrando la opción vacía. Se lo empuja con setValue.
+ * Cuando el cambio viene del propio usuario, el valor ya coincide y no hace nada.
+ */
+watch(
+  () => props.modelValue,
+  async (val) => {
+    await nextTick()
+    const el = selectRef.value
+    const inst = el && (window as any).HSSelect?.getInstance?.(el)
+    const next = val === null || val === undefined ? '' : String(val)
+    if (!inst || String(inst.value ?? '') === next) return
+    try {
+      inst.setValue(next)
+    } catch (e) {
+      console.warn('[FormsSelect] HSSelect setValue falló:', e)
+    }
   },
 )
 
@@ -131,7 +156,10 @@ const handleChange = (e: Event) => {
       </button>
     </div>
 
-    <!-- Select (HSSelect) -->
+    <!-- Select (HSSelect). OJO: el <select> nativo NO puede llevar la clase
+         "hs-select": HSSelect.destroy() borra el primer ".hs-select" del
+         contenedor, que sería el nativo en vez del wrapper (se perdía el select
+         al re-inicializar por cambio de options). -->
     <ClientOnly v-else>
       <template #fallback>
         <div class="innertia-field bg-surface animate-pulse" />
@@ -140,7 +168,7 @@ const handleChange = (e: Event) => {
       <div :class="['relative', error ? 'select-error' : '']">
         <select
           ref="selectRef"
-          class="hs-select w-full"
+          class="innertia-select-native w-full"
           :value="modelValue ?? ''"
           :disabled="disabled"
           :data-hs-select="hsConfig"
