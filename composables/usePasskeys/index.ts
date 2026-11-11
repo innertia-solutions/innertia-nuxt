@@ -82,12 +82,12 @@ export function usePasskeys() {
     renewTimer = null
   }
 
-  if (getCurrentInstance()) {
-    onMounted(() => { detectSupport() })
-    onBeforeUnmount(dispose)
-  } else if (import.meta.client) {
-    detectSupport()
-  }
+  // Dentro de un hook de ciclo de vida la instancia ya está montada: onMounted no
+  // correría nunca, así que se detecta el soporte de inmediato.
+  const instance = getCurrentInstance()
+  if (instance) onBeforeUnmount(dispose)
+  if (instance && !instance.isMounted) onMounted(() => { detectSupport() })
+  else if (import.meta.client) detectSupport()
 
   function markPasskeyLogin(on: boolean) {
     if (!import.meta.client) return
@@ -156,8 +156,9 @@ export function usePasskeys() {
   async function startAutofill({ contexts = [], platform = false }: { contexts?: string[]; platform?: boolean } = {}) {
     if (!import.meta.client || guard.disposed) return null
     assertContexts(platform, contexts)
+    // Reentrante: aborta la ceremonia de una corrida anterior antes de abrir otra.
+    stopAutofill()
     const id = guard.next()
-    clearRenewTimer()
 
     if (!(await supportsAutofill())) return null
     if (!guard.isCurrent(id)) return null
