@@ -105,6 +105,10 @@ export function useAuth() {
   async function logout() {
     try { await $fetch('/_auth/logout', { method: 'POST' }) } catch { /* best-effort */ }
     queryClient.clear()
+    // La marca "ingresó con passkey" es de la sesión que termina.
+    if (import.meta.client) {
+      try { sessionStorage.removeItem('innertia:logged-in-with-passkey') } catch {}
+    }
     authStore.logout() // limpia el state en memoria
     organizationStore.reset()
     // En open, limpiar también el tenant seleccionado

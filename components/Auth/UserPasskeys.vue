@@ -12,6 +12,7 @@ const toast = useToast()
 const { confirm } = useModal()
 const items = ref([])
 const loading = ref(true)
+const loadError = ref('')
 const revoking = ref(false)
 
 const lastUsed = computed(() => {
@@ -21,7 +22,15 @@ const lastUsed = computed(() => {
 
 async function load() {
   loading.value = true
-  try { items.value = await passkeys.listForUser(props.userId) } finally { loading.value = false }
+  loadError.value = ''
+  try {
+    items.value = await passkeys.listForUser(props.userId)
+  } catch (e) {
+    items.value = []
+    loadError.value = passkeys.errorMessage(e)
+  } finally {
+    loading.value = false
+  }
 }
 
 async function revoke() {
@@ -45,17 +54,19 @@ onMounted(load)
 
 <template>
   <div class="flex items-center gap-3 rounded-card border border-card-line bg-card px-5 py-4">
-    <IconFingerprint class="size-5 shrink-0 text-muted-foreground" />
+    <IconFingerprint class="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
     <div class="min-w-0 flex-1">
       <p class="text-sm font-medium text-foreground">Passkeys</p>
       <p class="text-xs text-muted-foreground">
         <template v-if="loading">Cargando…</template>
+        <span v-else-if="loadError" class="text-red-600" role="alert">{{ loadError }}</span>
         <template v-else-if="!items.length">No tiene passkeys.</template>
         <template v-else>
           {{ items.length === 1 ? '1 passkey' : `${items.length} passkeys` }}<template v-if="lastUsed"> · último uso {{ lastUsed }}</template>
         </template>
       </p>
     </div>
-    <App.Button v-if="items.length" text="Revocar todas" severity="danger" size="sm" :loading="revoking" @click="revoke" />
+    <App.Button v-if="loadError" text="Reintentar" size="sm" @click="load" />
+    <App.Button v-else-if="items.length" text="Revocar todas" severity="danger" size="sm" :loading="revoking" @click="revoke" />
   </div>
 </template>

@@ -25,6 +25,7 @@ function dismiss() {
   visible.value = false
 }
 
+// usePasskeys resuelve `supported` en su propio onMounted, que corre antes que este.
 onMounted(async () => {
   if (!userId.value || !passkeys.supported.value) return
   let hasPasskeys = true
@@ -58,13 +59,18 @@ async function activate() {
     class="flex items-center gap-3 rounded-card border border-card-line bg-card px-4 py-3 shadow-sm"
     role="status"
   >
-    <IconFingerprint class="size-5 shrink-0 text-primary" />
+    <IconFingerprint class="size-5 shrink-0 text-primary" aria-hidden="true" />
     <p class="flex-1 text-sm text-foreground">
       Ingresa con tu huella la próxima vez, sin contraseña.
     </p>
     <App.Button text="Activar" severity="primary" size="sm" :loading="saving" @click="activate" />
-    <button type="button" class="text-muted-foreground hover:text-foreground" aria-label="Ahora no" @click="dismiss">
-      <IconX class="size-4" />
+    <button
+      type="button"
+      class="rounded-control p-1 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+      aria-label="Ahora no, cerrar la invitación a usar passkey"
+      @click="dismiss"
+    >
+      <IconX class="size-4" aria-hidden="true" />
     </button>
   </div>
 </template>

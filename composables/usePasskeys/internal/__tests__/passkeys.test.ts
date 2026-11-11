@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { passkeyErrorMessage, isPasskeyCancel, suggestPasskeyName, shouldShowPasskeyInvite, inviteStorageKey } from '../passkeys'
+import { passkeyErrorMessage, isPasskeyCancel, isPasskeyDismissed, contextsRequiredError, CONTEXTS_REQUIRED, suggestPasskeyName, shouldShowPasskeyInvite, inviteStorageKey } from '../passkeys'
 
 const domErr = (name: string) => Object.assign(new Error(name), { name })
 
@@ -27,6 +27,32 @@ describe('isPasskeyCancel', () => {
     expect(isPasskeyCancel(domErr('AbortError'))).toBe(true)
     expect(isPasskeyCancel({ name: 'WebAuthnError', code: 'ERROR_CEREMONY_ABORTED' })).toBe(true)
     expect(isPasskeyCancel(domErr('SecurityError'))).toBe(false)
+  })
+  it('NotAllowedError no es un abort (en gestión sigue mostrando mensaje)', () => {
+    expect(isPasskeyCancel(domErr('NotAllowedError'))).toBe(false)
+  })
+})
+
+describe('isPasskeyDismissed (botón de ingreso)', () => {
+  it('trata NotAllowedError como cancelación del usuario', () => {
+    expect(isPasskeyDismissed(domErr('NotAllowedError'))).toBe(true)
+    expect(isPasskeyDismissed({ name: 'WebAuthnError', code: 'ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY', cause: domErr('NotAllowedError') })).toBe(true)
+  })
+  it('incluye los aborts', () => {
+    expect(isPasskeyDismissed(domErr('AbortError'))).toBe(true)
+    expect(isPasskeyDismissed({ name: 'WebAuthnError', code: 'ERROR_CEREMONY_ABORTED' })).toBe(true)
+  })
+  it('no oculta errores reales', () => {
+    expect(isPasskeyDismissed(domErr('SecurityError'))).toBe(false)
+    expect(isPasskeyDismissed({ data: { message: 'No pudimos verificar la passkey.' } })).toBe(false)
+  })
+})
+
+describe('contextsRequiredError', () => {
+  it('lleva mensaje y código', () => {
+    const e: any = contextsRequiredError()
+    expect(e.message).toBe('PasskeyButton requiere contexts')
+    expect(e.code).toBe(CONTEXTS_REQUIRED)
   })
 })
 

@@ -17,7 +17,10 @@ Notas:
 
 ## Login de tenant
 
-`<Auth.PasskeyButton>` arranca la ceremonia y, con `autofill` (por defecto), también el autocompletado del navegador. Para que el autocompletado funcione, el campo de correo debe llevar `autocomplete="username webauthn"`.
+`<Auth.PasskeyButton>` arranca la ceremonia y, con `autofill` (por defecto), también el autocompletado del navegador.
+
+- **Autocompletado:** necesita un input con `autocomplete="username webauthn"` (con `webauthn` al final) presente al montar el botón; si no existe, el autocompletado simplemente no arranca. `<Auth.LoginForm>` de la librería ya lo trae. El autocompletado se renueva solo cada ~270 s (el reto dura 300 s), se detiene al pulsar el botón y al desmontar, y no se reanuda tras un ingreso exitoso. Sus errores previos a que el usuario elija una passkey no se muestran (solo `console.debug` en dev).
+- **`contexts` es obligatorio** en el login de tenant (el backend exige al menos uno). Sin `contexts` y sin `platform`, el composable lanza `Error('PasskeyButton requiere contexts')` antes de cualquier ceremonia y avisa por consola en dev.
 
 ```vue
 <template>
@@ -37,7 +40,7 @@ Notas:
 
 - `@success(data)`: ingreso completo. `data.context` indica el contexto (y `data.tenantDestination` en modo `open`). Navega igual que tras `performLogin` (`finishLogin` ya dejó la sesión lista).
 - `@pending(data)`: hay un paso previo, p. ej. cambio forzado de contraseña; reutiliza el mismo flujo que el login con contraseña.
-- `@error(message)`: mensaje legible para mostrar (las cancelaciones del usuario no emiten error).
+- `@error(message, originalError)`: mensaje legible para mostrar y el error original (p. ej. para detectar un 409 `platform_account`: `originalError?.status === 409`). Las cancelaciones del usuario (cerrar el diálogo del navegador, `NotAllowedError`, aborts) no emiten nada.
 
 Props: `contexts` (array), `platform` (bool), `autofill` (bool, `true`), `label` (texto del botón).
 
@@ -46,8 +49,10 @@ Props: `contexts` (array), `platform` (bool), `autofill` (bool, `true`), `label`
 En `/platform/login`, con la prop `platform` (identidad separada, sin contexto de tenant):
 
 ```vue
-<Auth.PasskeyButton platform @success="navigateTo('/platform')" @pending="onPending" />
+<Auth.PasskeyButton platform @success="navigateTo('/platform')" />
 ```
+
+El ingreso de plataforma siempre devuelve token (no hay `pending`). Si la cuenta tiene un cambio de contraseña forzado pendiente, el ingreso funciona pero las llamadas siguientes responden `403 password_change_required`: en ese caso redirige a la pantalla de cambio de contraseña.
 
 ## Invitación tras ingresar con contraseña
 
@@ -81,10 +86,12 @@ En `/platform/login`, con la prop `platform` (identidad separada, sin contexto d
 
 | Método | Uso |
 |--------|-----|
-| `supported`, `autofillSupported` | refs con el soporte del navegador |
+| `supported`, `autofillSupported`, `ready` | refs con el soporte del navegador; `false` en SSR y en el primer render, se resuelven en `onMounted` (`ready` indica que ya se resolvió) |
 | `login({ contexts })`, `loginPlatform()` | ceremonia de ingreso (tenant / plataforma) |
-| `startAutofill({ contexts, platform })`, `stopAutofill()` | autocompletado (conditional UI) |
+| `startAutofill({ contexts, platform })`, `stopAutofill()`, `dispose()` | autocompletado (conditional UI); se libera solo al desmontar el componente que llamó a `usePasskeys()` |
 | `list(base)`, `register(name?, base)`, `rename(id, name, base)`, `remove(id, base)` | gestión propia |
 | `listForUser(userId)`, `revokeAll(userId)` | administración |
 | `loggedInWithPasskey()`, `markPasskeyLogin(on)` | marca de sesión (oculta la invitación) |
-| `errorMessage(err)`, `isCancel(err)` | mensajes legibles y detección de cancelación |
+| `errorMessage(err)`, `isCancel(err)`, `isDismissed(err)` | mensajes legibles; `isCancel` = aborts; `isDismissed` = aborts + `NotAllowedError` (botón de ingreso) |
+
+Llama a `usePasskeys()` durante el `setup` de un componente.

@@ -153,7 +153,7 @@ const otherMobileApps = computed(() => {
           v-model="form.values.email"
           type="email"
           :disabled="processing"
-          autocomplete="email"
+          autocomplete="username webauthn"
           placeholder="tu@correo.com"
           @blur="form.validate('email')"
           class="py-2.5 px-3 block w-full border rounded-lg sm:text-sm placeholder:text-slate-400 focus:ring-1 disabled:opacity-50 dark:bg-transparent dark:text-slate-300"

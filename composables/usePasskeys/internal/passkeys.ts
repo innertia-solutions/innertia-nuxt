@@ -20,6 +20,24 @@ export function isPasskeyCancel(err: any): boolean {
   return name === 'AbortError' || err?.code === 'ERROR_CEREMONY_ABORTED'
 }
 
+/**
+ * Botón de ingreso: además de los aborts, NotAllowedError (el usuario cerró el
+ * diálogo del navegador o se agotó el tiempo) cuenta como cancelación y no se muestra.
+ */
+export function isPasskeyDismissed(err: any): boolean {
+  return isPasskeyCancel(err) || browserErrorName(err) === 'NotAllowedError'
+}
+
+/** Código del error de configuración: login de tenant sin contexts. */
+export const CONTEXTS_REQUIRED = 'PASSKEY_CONTEXTS_REQUIRED'
+
+export function contextsRequiredError(): Error {
+  return Object.assign(new Error('PasskeyButton requiere contexts'), { code: CONTEXTS_REQUIRED })
+}
+
+/** Selector del campo que habilita el autocompletado (simplewebauthn exige "webauthn" al final). */
+export const WEBAUTHN_INPUT_SELECTOR = "input[autocomplete$='webauthn']"
+
 export function passkeyErrorMessage(err: any): string {
   const backend = err?.data?.message
   if (typeof backend === 'string' && backend) return backend
