@@ -30,7 +30,8 @@ export function useFileImports(base: MaybeRefOrGetter<string>) {
       queryKey: computed(() => ['files', 'imports', importId.value]),
       queryFn: async () => ((await api.get(endpoints.value.importShow(importId.value as string))) as any).data as FileImport,
       enabled: computed(() => !!importId.value),
-      refetchInterval: (q: any) => (isFinished(q.state.data?.status) ? false : POLL_MS),
+      // Se detiene al terminar o si la consulta falló (p. ej. 404): no sondear para siempre.
+      refetchInterval: (q: any) => (q.state.status === 'error' || isFinished(q.state.data?.status) ? false : POLL_MS),
       retry: 2,
     })
   }

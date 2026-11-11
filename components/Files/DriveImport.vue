@@ -38,7 +38,7 @@ watch(() => props.modelValue, (open) => {
   if (props.resumeId) {
     importId.value = props.resumeId
     step.value = 'progress'
-  } else if (step.value !== 'progress' || isFinished(current.value?.status)) {
+  } else if (step.value !== 'progress' || isFinished(current.value?.status) || tracker.isError.value) {
     step.value = 'pick'
     selection.value = []
     importId.value = null
@@ -103,7 +103,8 @@ const expanded = reactive({})
 
     <!-- 3. Progreso / resumen -->
     <div v-else class="space-y-4">
-      <div v-if="!current" class="flex items-center gap-2 text-sm text-muted-foreground"><IconLoader2 class="size-4 animate-spin" /> Iniciando…</div>
+      <p v-if="!current && tracker.isError.value" class="text-sm text-red-600 dark:text-red-400">{{ tracker.error.value?.data?.message ?? 'No se pudo consultar el estado de la importación.' }}</p>
+      <div v-else-if="!current" class="flex items-center gap-2 text-sm text-muted-foreground"><IconLoader2 class="size-4 animate-spin" /> Iniciando…</div>
       <template v-else>
         <div class="flex items-center gap-2 text-sm font-medium"
           :class="current.status === 'failed' ? 'text-red-600 dark:text-red-400' : current.status === 'done' ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'">

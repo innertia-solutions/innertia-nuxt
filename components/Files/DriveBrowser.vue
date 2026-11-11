@@ -113,7 +113,11 @@ function iconFor(entry) {
           selectedIds.has(entry.id) ? 'bg-primary/5' : 'hover:bg-primary/5',
           !entry.is_folder && mode === 'items' && !isSelectable(entry, accept) ? 'opacity-50' : 'cursor-pointer',
         ]"
-        @click="onRow(entry)">
+        :role="entry.is_folder || (mode === 'items' && isSelectable(entry, accept)) ? 'button' : undefined"
+        :tabindex="entry.is_folder || (mode === 'items' && isSelectable(entry, accept)) ? 0 : undefined"
+        @click="onRow(entry)"
+        @keydown.enter.self.prevent="onRow(entry)"
+        @keydown.space.self.prevent="onRow(entry)">
         <button v-if="mode === 'items' && isSelectable(entry, accept)" type="button"
           class="size-4 shrink-0 rounded-control border flex items-center justify-center"
           :class="selectedIds.has(entry.id) ? 'bg-primary border-primary text-white' : 'border-card-line'"

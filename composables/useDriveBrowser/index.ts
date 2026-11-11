@@ -1,4 +1,4 @@
-import { computed, ref, toValue, type MaybeRefOrGetter } from 'vue'
+import { computed, ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import {
   driveEndpoints, rootLocation, enter as enterLoc, goTo as goToLoc, current as currentOf,
   breadcrumb as breadcrumbOf, browseParams, canPickCurrentFolder, locationFromPath,
@@ -25,13 +25,17 @@ export function useDriveBrowser(options: MaybeRefOrGetter<{ base: string; folder
     queryKey: computed(() => ['drive', 'browse', endpoints.value.browse, params.value]),
     queryFn: async () => {
       const res: any = await api.get(endpoints.value.browse, { params: params.value })
-      if (Array.isArray(res?.shared_drives)) sharedDrives.value = res.shared_drives
-      return (res?.items ?? []) as DriveEntry[]
+      return { items: (res?.items ?? []) as DriveEntry[], shared_drives: (res?.shared_drives ?? null) as SharedDrive[] | null }
     },
     enabled: computed(() => opts.value.enabled !== false),
     staleTime: 30_000,
     retry: false,
   })
+
+  // Desde data (no desde queryFn): con caché fresca el queryFn no corre al remontar.
+  watch(() => query.data.value?.shared_drives, (drives) => {
+    if (Array.isArray(drives)) sharedDrives.value = drives
+  }, { immediate: true })
 
   const createFolder = useMutation({
     mutationFn: (name: string) => api.post(endpoints.value.folders, { name, parent: currentOf(location.value).id }),
@@ -51,7 +55,7 @@ export function useDriveBrowser(options: MaybeRefOrGetter<{ base: string; folder
   return {
     location,
     sharedDrives,
-    items: computed(() => query.data.value ?? []),
+    items: computed(() => query.data.value?.items ?? []),
     isLoading: computed(() => query.isFetching.value),
     error: computed(() => (query.error.value ? ((query.error.value as any)?.data?.message ?? 'No se pudo listar Google Drive.') : null)),
     current: computed(() => currentOf(location.value)),

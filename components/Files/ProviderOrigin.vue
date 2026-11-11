@@ -16,6 +16,7 @@ const props = defineProps({
 const emit = defineEmits(['changed'])
 
 const toast = useToast()
+const queryClient = useQueryClient()
 const { refresh, track } = useFileImports(() => props.driveBase)
 const importId = ref(null)
 const tracker = track(importId)
@@ -40,7 +41,17 @@ watch(() => tracker.data.value?.status, (status) => {
   const outcome = refreshOutcome(tracker.data.value)
   if (outcome.kind === 'failed') toast.error(outcome.message)
   else toast.success(outcome.message)
-  if (outcome.kind === 'updated') emit('changed')
+  if (outcome.kind === 'updated') {
+    queryClient.invalidateQueries({ queryKey: ['files', 'versions'] })
+    emit('changed')
+  }
+  importId.value = null
+})
+
+// Sin esto, un error al consultar el estado deja el botón cargando para siempre.
+watch(() => tracker.isError.value, (failed) => {
+  if (!failed || !importId.value) return
+  toast.error(tracker.error.value?.data?.message ?? 'No se pudo consultar el estado de la actualización.')
   importId.value = null
 })
 </script>

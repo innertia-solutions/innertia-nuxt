@@ -19,11 +19,18 @@ const current = ref(null)   // { item, path }
 const error = ref(null)
 const open = ref(false)
 
+let seq = 0
 async function load(id) {
+  const mine = ++seq
   current.value = null
   error.value = null
   if (!id) return
-  try { current.value = await info(id) } catch (e) { error.value = e?.data?.message ?? 'No se pudo leer la carpeta.' }
+  try {
+    const res = await info(id)
+    if (mine === seq) current.value = res
+  } catch (e) {
+    if (mine === seq) error.value = e?.data?.message ?? 'No se pudo leer la carpeta.'
+  }
 }
 watch(() => props.modelValue, load, { immediate: true })
 
