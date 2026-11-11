@@ -6,6 +6,7 @@ All notable changes to `@innertia-solutions/innertia-nuxt` are documented here.
 
 ### Added
 
+- Passkeys (WebAuthn): composable `usePasskeys()`, componentes `Auth.PasskeyButton` (login tenant y `/platform`, con autocompletado), `Auth.PasskeyInvite`, `Auth.PasskeyManager` y `Auth.UserPasskeys`, y rutas BFF `/_auth/passkey/login` y `/_auth/platform/passkey/login` que sellan la sesión solo si hay token. Requiere `PASSKEYS_ENABLED=true` en el backend. Ver `docs/passkeys.md`.
 - `Kanban.Standard`: reordenamiento intra-columna con drag&drop (prop `reorderEndpoint`); orden por `position`, placeholder de inserción, y persistencia vía POST. Retrocompatible: sin la prop se comporta igual que antes (solo cross-column).
 
 ### Fixed
