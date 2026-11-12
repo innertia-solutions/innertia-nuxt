@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, useAttrs } from 'vue'
 
 /*
  * CurrencyInput — input de moneda con formato SOLO visual.
@@ -72,15 +72,29 @@ function onBlur() {
 const baseClasses = computed(() =>
   `innertia-field${props.size === 'sm' ? ' innertia-field-sm' : ''}`,
 )
+// Los atributos no declarados (maxlength, min, max, step, required, inputmode,
+// name, id, aria-*, data-*) y los listeners (@blur, @keydown, @focus…) van al
+// <input>; solo class/style quedan en el <div> raíz para no romper el layout.
+defineOptions({ inheritAttrs: false })
+const attrs = useAttrs()
+// Funciones (no computed): useAttrs() no es reactivo, el render sí se re-ejecuta.
+function rootAttrs() {
+  return { class: attrs.class, style: attrs.style }
+}
+function inputAttrs() {
+  const { class: _class, style: _style, ...rest } = attrs
+  return rest
+}
 </script>
 
 <template>
-  <div class="w-full">
+  <div class="w-full" v-bind="rootAttrs()">
     <label v-if="label" class="block text-sm font-medium text-foreground mb-1.5">
       {{ label }}
     </label>
 
     <input
+      v-bind="inputAttrs()"
       ref="inputEl"
       type="text"
       inputmode="numeric"
