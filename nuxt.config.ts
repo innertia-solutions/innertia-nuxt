@@ -52,6 +52,14 @@ export default defineNuxtConfig({
       packages: {},
       detailsPath: 'platform/version',
     },
+    // Privado. Renovación deslizante del JWT en el BFF (server/utils/sessionToken.ts):
+    // renueva contra Laravel POST {path} cuando al token le quedan < 10 min (o < 1/3
+    // de su vida). NUXT_AUTH_REFRESH_ENABLED=false la apaga; NUXT_AUTH_REFRESH_PATH
+    // cambia el endpoint si el producto montó sessionRoutes con otro prefijo.
+    authRefresh: {
+      enabled: true,
+      path: 'auth/refresh',
+    },
     public: {
       loginPath: '/backoffice/login',
       homePath: '/backoffice',

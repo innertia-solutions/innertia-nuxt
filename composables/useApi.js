@@ -1,6 +1,18 @@
 // useRequestInterceptors auto-imported from nuxt-core
 import { deleteCookie } from 'h3'
 // useAuthStore auto-imported from this package
+import { shouldThrowOnUnauthorized, unauthorizedError } from './internal/apiUnauthorized.js'
+
+// Un solo aviso aunque fallen varias requests en paralelo.
+let lastExpiredNoticeAt = 0
+function notifySessionExpired() {
+  const now = Date.now()
+  if (now - lastExpiredNoticeAt < 5000) return
+  lastExpiredNoticeAt = now
+  try {
+    useToast().warning('Tu sesión expiró. Vuelve a ingresar.')
+  } catch { /* sin pinia/toast disponible: el redirect basta */ }
+}
 
 export function useApi() {
   const config = useRuntimeConfig()
@@ -69,6 +81,13 @@ export function useApi() {
     const response = await fetch(url, fetchOptions)
 
     if (response.status === 401) {
+      // Contrato ante 401:
+      // - GET (y cualquier llamada SSR): devuelve null (fetchMe, auth-init y las
+      //   queries dependen de eso; en SSR lanzar daría un 500 en vez del redirect).
+      // - Mutaciones en el cliente (POST/PUT/PATCH/DELETE): LANZA un error con
+      //   status 401. Devolver null hacía que useMutation/try-catch lo tomaran como
+      //   éxito ("Guardado" sin guardar nada). Override: options.throwOnUnauthorized.
+      const shouldThrow = shouldThrowOnUnauthorized(method, options)
       const authStore = useAuthStore()
       authStore.logout()
       // La sesión sellada quedó inválida (token revocado, usuario borrado, BD
@@ -83,8 +102,17 @@ export function useApi() {
       }
       const current = requestEvent ? requestEvent.path?.split('?')[0] : router?.currentRoute.value.path
       // Ya en una página de login (la del producto o /platform/login): no redirigir.
-      if (current !== loginPath && !current?.endsWith('/login')) await navigateTo(loginPath)
-      return null
+      const onLoginPage = current === loginPath || !!current?.endsWith('/login')
+      if (import.meta.client && !onLoginPage) notifySessionExpired()
+      if (!shouldThrow) {
+        if (!onLoginPage) await navigateTo(loginPath)
+        return null
+      }
+      // Al lanzar NO se espera la navegación: así el catch del llamador muestra el
+      // error (y conserva lo escrito) antes de que una guarda de "cambios sin
+      // guardar" pregunte si descartarlos.
+      if (!onLoginPage) Promise.resolve(navigateTo(loginPath)).catch(() => { /* navegación cancelada */ })
+      throw unauthorizedError()
     }
 
     const contentType = response.headers.get('content-type') ?? ''

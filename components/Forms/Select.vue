@@ -11,7 +11,7 @@ const props = withDefaults(defineProps<{
   loading?: boolean
   /** Falló la carga de opciones: muestra mensaje + botón Reintentar (emite 'retry'). */
   loadError?: boolean | string
-  /** Permite volver a "Seleccionar…" (blanquear la selección). Default true. */
+  /** Permite volver a "Selecciona…" (blanquear la selección). Default true. */
   clearable?: boolean
 }>(), {
   clearable: true,
@@ -27,16 +27,18 @@ const loadErrorMessage = computed(() =>
   typeof props.loadError === 'string' && props.loadError ? props.loadError : 'No se pudieron cargar las opciones.'
 )
 
-const emptyLabel = computed(() => props.placeholder ?? 'Seleccionar...')
+const emptyLabel = computed(() => props.placeholder || 'Selecciona…')
 
 /**
- * Config de HSSelect. Si `clearable`, NO seteamos `placeholder` en Preline: así la
- * opción vacía "Seleccionar…" queda como una opción normal (re-seleccionable) y el
- * usuario puede blanquear la selección. Si no, la vacía actúa de placeholder (Preline
- * la oculta una vez elegido un valor).
+ * Config de HSSelect. El `placeholder` se pasa SIEMPRE: si falta, Preline muestra su
+ * default en inglés ("Select..."). Si `clearable`, además `optionAllowEmptyOption`:
+ * la opción vacía ("Selecciona…") queda como opción normal (re-seleccionable) y el
+ * usuario puede blanquear la selección; sin eso Preline la filtra del dropdown. Si
+ * no es clearable, la vacía solo actúa de placeholder.
  */
 const hsConfig = computed(() => JSON.stringify({
-  ...(props.clearable ? {} : { placeholder: emptyLabel.value }),
+  placeholder: emptyLabel.value,
+  ...(props.clearable ? { optionAllowEmptyOption: true } : {}),
   dropdownScope: 'window',
   toggleTag: '<button type="button" aria-expanded="false"></button>',
   toggleClasses: 'innertia-field hs-select-disabled:pointer-events-none hs-select-disabled:opacity-50 relative pe-9 flex gap-x-2 items-center text-nowrap cursor-pointer text-start',

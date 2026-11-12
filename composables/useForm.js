@@ -44,6 +44,16 @@ export function useForm(formDefinition, options = {}) {
     errors[field] = []
   }
 
+  // Al cambiar el valor de un campo se borra su error (de validación local o del
+  // 422 del backend): el mensaje no debe quedar pegado bajo un campo ya corregido
+  // hasta el próximo envío. Se vuelve a validar al enviar. flush 'sync': se limpia
+  // en el acto, así un `values.x = …; addError('x', …)` seguido no pierde el error nuevo.
+  for (const field in formDefinition) {
+    watch(() => form[field], () => {
+      if (errors[field]?.length) errors[field] = []
+    }, { deep: true, flush: 'sync' })
+  }
+
   const reset = () => {
     for (const field in formDefinition) {
       form[field] = formDefinition[field]?.value !== undefined ? formDefinition[field].value : ''
