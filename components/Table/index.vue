@@ -764,7 +764,8 @@ defineExpose({
               {{ pagination.pageIndex + 1 }}
             </span>
             <span class="text-[10px] font-bold text-muted-foreground uppercase mx-1">de</span>
-            <span class="text-[10px] font-bold text-muted-foreground">{{ table.getPageCount() }}</span>
+            <!-- Sin registros getPageCount() da 0: se muestra "1 de 1", no "1 de 0". -->
+            <span class="text-[10px] font-bold text-muted-foreground">{{ Math.max(1, table.getPageCount()) }}</span>
           </div>
           <button
             type="button"

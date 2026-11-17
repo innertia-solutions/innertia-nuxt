@@ -56,11 +56,19 @@ const props = defineProps({
   states:    { type: Array,  required: true },
   moveMutation: { type: Function, default: null },
 
+  // Bloquea un arrastre ANTES de soltar: (row, fromState, toState) => boolean, síncrona.
+  // Si retorna false la columna no se resalta, el cursor indica "no permitido" y el drop
+  // no hace nada (no hay optimistic update, ni emit('move'), ni llamada al backend).
+  // Solo se consulta al cambiar de columna; reordenar dentro de la misma no pasa por acá.
+  canDrop: { type: Function, default: null },
+
   // Endpoint para persistir reorden (POST). Si null → solo cross-column, sin placeholder.
   reorderEndpoint: { type: String, default: null },
 
   // Toolbar visibility
   showSearch:       { type: Boolean, default: true },
+  // Término con el que parte el buscador. Solo se lee al montar.
+  initialSearch:    { type: String,  default: '' },
   searchPlaceholder:{ type: String,  default: 'Buscar...' },
   showColumns:      { type: Boolean, default: true },
   showReloadButton: { type: Boolean, default: true },
@@ -139,7 +147,7 @@ const rows         = ref([])
 const meta         = ref(null)
 const loading      = ref(false)
 const isFetching   = ref(false)
-const search       = ref('')
+const search       = ref(props.initialSearch ?? '')
 const isDataFromCache = ref(false)
 
 // Visibilidad de columnas (estados) — { [stateKey]: boolean }
@@ -408,6 +416,8 @@ const loadFromCache = () => {
       sessionStorage.removeItem(cacheKey.value)
       return false
     }
+    // Con búsqueda inicial, un caché de otro término no sirve: se pide de nuevo.
+    if (props.initialSearch && (cached.search ?? '') !== props.initialSearch) return false
     rows.value = cached.rows ?? []
     meta.value = cached.meta ?? null
     stateVisibility.value = cached.stateVisibility ?? stateVisibility.value
@@ -457,7 +467,24 @@ const onDragStart = (row, state) => {
   draggedId.value = row.id
   draggedFrom.value = state
 }
+// ¿Se puede soltar la tarjeta arrastrada en `state`? Sin prop `canDrop` siempre sí.
+// Sin preventDefault en dragover el navegador rechaza el drop y muestra "no permitido".
+const isDropAllowed = (state) => {
+  if (!props.canDrop || !draggedId.value || draggedFrom.value === state) return true
+  const row = rows.value.find(r => r.id === draggedId.value)
+  if (!row) return true
+  try {
+    return props.canDrop(row, draggedFrom.value, state) !== false
+  } catch (e) {
+    console.error('[KanbanStandard] canDrop falló, se bloquea el arrastre:', e)
+    return false
+  }
+}
 const onDragOver = (e, state) => {
+  if (!isDropAllowed(state)) {
+    if (dragOverState.value === state) { dragOverState.value = null; dragOverIndex.value = null }
+    return
+  }
   e.preventDefault()
   if (dragOverState.value !== state) dragOverState.value = state
   if (!props.reorderEndpoint) return
@@ -483,6 +510,7 @@ const onDragEnd = () => {
 // Solo escribe el índice si cambió (evita reactividad redundante = menos re-render/parpadeo).
 const onCardDragOver = (e, state, index) => {
   if (!props.reorderEndpoint) return
+  if (!isDropAllowed(state)) return // burbujea a la columna, que tampoco acepta el drop
   e.preventDefault()
   e.stopPropagation()
   if (dragOverState.value !== state) dragOverState.value = state
@@ -493,6 +521,8 @@ const onCardDragOver = (e, state, index) => {
 }
 
 const onDrop = async (targetState) => {
+  // Defensa: el navegador ya no dispara drop si dragover no lo aceptó, pero se revalida.
+  const allowed   = isDropAllowed(targetState)
   const id        = draggedId.value
   const fromState = draggedFrom.value
   const dropIndex = dragOverIndex.value
@@ -500,7 +530,7 @@ const onDrop = async (targetState) => {
   dragOverIndex.value = null
   draggedId.value = null
   draggedFrom.value = null
-  if (!id) return
+  if (!id || !allowed) return
 
   // Modo reorden (prop seteada): calcula vecinos y persiste posición.
   if (props.reorderEndpoint) {

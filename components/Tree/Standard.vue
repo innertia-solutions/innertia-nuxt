@@ -48,6 +48,11 @@ const props = defineProps({
   // Empty state.
   emptyMessage: { type: String, default: 'No hay registros.' },
 
+  // Nombre de lo que cuenta el pie ("12 elementos"). El producto puede poner el suyo
+  // (ej. item-label="objetivo" item-label-plural="objetivos").
+  itemLabel:       { type: String, default: 'elemento' },
+  itemLabelPlural: { type: String, default: 'elementos' },
+
   // Variante visual:
   //   'table' — clásico con filas, columnas y bordes (default)
   //   'list'  — compacto tipo file-tree explorer (sin tabla, sin bordes de fila)
@@ -969,7 +974,7 @@ defineExpose({
 
           <!-- Total nodes -->
           <p class="text-sm text-foreground font-medium">
-            {{ totalRendered }} {{ totalRendered === 1 ? 'nodo' : 'nodos' }}
+            {{ totalRendered }} {{ totalRendered === 1 ? itemLabel : itemLabelPlural }}
           </p>
 
           <!-- Cache badge (instant) -->

@@ -38,7 +38,11 @@ const formats = [
   { value: 'json', label: 'JSON'  },
 ]
 
+// Con columnas para elegir, exportar exige al menos una marcada.
+const noColumnsSelected = computed(() => props.columns.length > 0 && selectedColumns.value.length === 0)
+
 const doExport = () => {
+  if (noColumnsSelected.value) return
   props.tableRef?.exportTable(format.value, true, true, selectedColumns.value)
   isOpen.value = false
 }
@@ -158,10 +162,14 @@ defineExpose({ open: () => { isOpen.value = true } })
         </div>
 
         <!-- Export button -->
+        <p v-if="noColumnsSelected" class="mb-2 px-1 text-xs text-muted-foreground" role="alert">
+          Selecciona al menos una columna para exportar.
+        </p>
         <button
           type="button"
+          :disabled="noColumnsSelected"
           @click="doExport"
-          class="w-full py-1.5 px-3 rounded-control bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors inline-flex items-center justify-center gap-2"
+          class="w-full py-1.5 px-3 rounded-control bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
         >
           <IconDownload class="size-4" stroke="1.5" />
           Exportar

@@ -16,7 +16,14 @@ const props = defineProps({
   title:    { type: String, default: 'Versiones' },
 })
 
-const { data, error, pending, refresh } = useFetch(props.endpoint, { server: false, key: `innertia-versions:${props.endpoint}` })
+const { data, error, pending, status, refresh } = useFetch(props.endpoint, { server: false, key: `innertia-versions:${props.endpoint}` })
+
+// Con `server: false` el servidor deja el fetch en 'idle' (pending=false) y el cliente
+// lo lanza en onBeforeMount (pending=true) antes de hidratar: si el estado de carga
+// dependiera solo de `pending`, el HTML del servidor (grilla vacía) no coincidiría con
+// el primer render del cliente ("Cargando…") → error de hidratación. 'idle' sin datos
+// también cuenta como cargando, así ambos lados renderizan lo mismo.
+const loading = computed(() => !data.value && !error.value && (pending.value || status.value === 'idle'))
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -67,7 +74,7 @@ const sides = computed(() => {
       </button>
     </header>
 
-    <div v-if="pending && !data" class="p-4 text-sm text-muted-foreground">Cargando…</div>
+    <div v-if="loading" class="p-4 text-sm text-muted-foreground">Cargando…</div>
     <div v-else-if="error" class="p-4 text-sm text-red-600 dark:text-red-400">
       No se pudieron cargar las versiones ({{ error.statusCode ?? 'error' }}).
     </div>

@@ -14,6 +14,9 @@ const props = defineProps({
   clickRowToOpen:          { type: Boolean, default: false },
   searchPlaceholder:       { type: String,  default: 'Buscar...' },
   showSearch:              { type: Boolean, default: true },
+  // Término con el que parte el buscador (ej. al llegar desde la búsqueda global).
+  // Solo se lee al montar; después manda lo que escriba el usuario.
+  initialSearch:           { type: String,  default: '' },
   showFilters:             { type: Boolean, default: true },
   // Realtime: auto-suscripción a los canales que el backend expone en meta.channels
   // (`entity.{tabla}.changed` → reload()). realtimeChannel queda como override manual
@@ -151,7 +154,7 @@ const forwardedSlots = computed(() => {
   return Object.fromEntries(Object.entries(slots).filter(([k]) => !excluded.has(k)))
 })
 
-const search        = ref('')
+const search        = ref(props.initialSearch ?? '')
 const activeFilters = ref({})
 const tableRef      = ref(null)
 const prefsLoaded   = ref(false)
