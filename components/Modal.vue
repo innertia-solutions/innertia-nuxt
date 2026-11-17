@@ -4,7 +4,7 @@ import { IconX } from '@tabler/icons-vue'
 /**
  * <Modal> — Core modal. Sigue tokens semánticos (rounded-modal, bg-card,
  * border-card-line). Variantes: center (default), drawer-right, drawer-left,
- * fullscreen. Tamaños xs..3xl.
+ * fullscreen. Tamaños xs..7xl.
  *
  * No tiene lógica de negocio. Para casos típicos preferir:
  *   - <ModalConfirm>  → confirmaciones con severities
@@ -14,7 +14,7 @@ import { IconX } from '@tabler/icons-vue'
 const props = defineProps({
   modelValue:      { type: Boolean, default: false },
   title:           { type: String,  default: '' },
-  size:            { type: String,  default: 'md', validator: v => ['xs','sm','md','lg','xl','2xl','3xl','fullscreen'].includes(v) },
+  size:            { type: String,  default: 'md', validator: v => ['xs','sm','md','lg','xl','2xl','3xl','4xl','5xl','6xl','7xl','fullscreen'].includes(v) },
   variant:         { type: String,  default: 'center', validator: v => ['center','drawer-right','drawer-left','fullscreen'].includes(v) },
   closable:        { type: Boolean, default: true },
   backdropDismiss: { type: Boolean, default: true },
@@ -38,6 +38,8 @@ const sizeClass = computed(() => {
   return ({
     xs: 'max-w-xs', sm: 'max-w-sm', md: 'max-w-md',
     lg: 'max-w-lg', xl: 'max-w-xl', '2xl': 'max-w-2xl', '3xl': 'max-w-3xl',
+    // Wide modals (tables, side-by-side panels) that still read as a modal, not a full screen.
+    '4xl': 'max-w-4xl', '5xl': 'max-w-5xl', '6xl': 'max-w-6xl', '7xl': 'max-w-7xl',
   }[props.size] ?? 'max-w-md')
 })
 
