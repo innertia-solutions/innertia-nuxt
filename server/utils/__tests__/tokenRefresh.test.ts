@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { decodeJwtPayload, shouldRefreshToken, createTokenRotator } from '../tokenRefresh'
+import { decodeJwtPayload, isPlatformToken, shouldRefreshToken, createTokenRotator } from '../tokenRefresh'
 
 function jwt(payload: Record<string, unknown>): string {
   const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url')
@@ -30,8 +30,10 @@ describe('shouldRefreshToken', () => {
   it('no renueva un token ya vencido (Laravel no lo acepta)', () => {
     expect(shouldRefreshToken(ttl60(), iat + 3601)).toBe(false)
   })
-  it('no renueva tokens de plataforma (identidad separada)', () => {
-    expect(shouldRefreshToken(ttl60({ platform: true }), iat + 3500)).toBe(false)
+  it('renueva también tokens de plataforma (contra su propio endpoint)', () => {
+    expect(shouldRefreshToken(ttl60({ platform: true }), iat + 3500)).toBe(true)
+    expect(isPlatformToken(ttl60({ platform: true }))).toBe(true)
+    expect(isPlatformToken(ttl60())).toBe(false)
   })
   it('con TTL corto usa 1/3 de la vida como ventana (no renueva en cada request)', () => {
     const short = jwt({ iat, exp: iat + 300 }) // 5 min

@@ -386,7 +386,8 @@ const loadDocx = async () => {
   }
 }
 
-watch(() => props.file?.id, () => {
+// También al subir una versión nueva: el id no cambia, pero el contenido sí.
+watch(() => [props.file?.id, props.file?.version], () => {
   textContent.value   = null
   xlsxWorkbook.value  = null
   xlsxActiveIdx.value = 0

@@ -32,20 +32,24 @@ export function decodeJwtPayload(token?: string | null): JwtPayload | null {
   }
 }
 
+/** ¿El token es de la consola de plataforma (identidad separada)? */
+export function isPlatformToken(token: string | null | undefined): boolean {
+  return Boolean(decodeJwtPayload(token)?.platform)
+}
+
 /** Ventana máxima (segundos) antes del vencimiento en que se renueva. */
 export const REFRESH_WINDOW_SECONDS = 10 * 60
 
 /**
  * ¿Conviene renovar ahora? Sí cuando el token sigue vigente y le queda menos de
  * min(10 min, 1/3 de su vida). El tope por vida evita renovar en cada request si
- * el TTL configurado es corto. Los tokens de plataforma (claim `platform`) NO se
- * renuevan: auth/refresh de Laravel resuelve el usuario con el modelo de usuarios
- * del producto y no conserva el claim, así que emitiría un token de otra identidad.
+ * el TTL configurado es corto. Los tokens de plataforma (claim `platform`) también
+ * se renuevan, pero contra su propio endpoint (platform/auth/refresh, ver
+ * isPlatformToken): el auth/refresh normal de un backend antiguo no conserva el claim.
  */
 export function shouldRefreshToken(token: string | null | undefined, nowSeconds: number, windowSeconds = REFRESH_WINDOW_SECONDS): boolean {
   const payload = decodeJwtPayload(token)
   if (!payload || typeof payload.exp !== 'number') return false
-  if (payload.platform) return false
   const remaining = payload.exp - nowSeconds
   if (remaining <= 0) return false
   const issuedAt = typeof payload.iat === 'number' ? payload.iat : (typeof payload.nbf === 'number' ? payload.nbf : null)

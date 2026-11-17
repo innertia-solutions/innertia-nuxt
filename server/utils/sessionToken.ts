@@ -3,7 +3,7 @@ import type { H3Event } from 'h3'
 import { readSession, writeSession } from './session'
 import type { SessionData } from './session'
 import { buildAuthHeaders, forwardClientHeaders } from './bff'
-import { createTokenRotator, shouldRefreshToken } from './tokenRefresh'
+import { createTokenRotator, isPlatformToken, shouldRefreshToken } from './tokenRefresh'
 
 // Token de la sesión sellada con renovación deslizante (ver tokenRefresh.ts).
 // Un rotador por proceso Nitro: deduplica refrescos concurrentes del mismo token.
@@ -15,7 +15,10 @@ function getRotator() {
       refresh: async (token, ev) => {
         if (!ev) return null
         const config = useRuntimeConfig(ev)
-        const path = String((config as any).authRefresh?.path || 'auth/refresh').replace(/^\/+/, '')
+        // La consola de plataforma renueva contra su propio endpoint: un backend sin
+        // esa ruta responde 404 y se sigue con el token actual (no cambia de identidad).
+        const cfg = (config as any).authRefresh || {}
+        const path = String(isPlatformToken(token) ? (cfg.platformPath || 'platform/auth/refresh') : (cfg.path || 'auth/refresh')).replace(/^\/+/, '')
         const res: any = await $fetch(`${String(config.apiInternalUrl).replace(/\/+$/, '')}/${path}`, {
           method: 'POST',
           // Un refresh colgado no debe bloquear el request del usuario: se sigue con el token actual.
