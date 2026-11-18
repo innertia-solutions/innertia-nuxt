@@ -61,9 +61,18 @@ async function launch() {
   }
 }
 
-/** Siempre pasa por opciones: muestra el conteo, el formato si hay nativos y el aviso de carpetas. */
+/** Hay algo que decidir antes de importar: el formato de los documentos de Google o carpetas que no se admiten. */
+const needsOptions = computed(() => flags.value.hasNatives || blockedFolders.value)
+
+/** Sin nada que decidir (p. ej. una imagen o un PDF) se importa de inmediato; si no, pasa por opciones. */
 function next() {
-  step.value = 'options'
+  if (needsOptions.value) step.value = 'options'
+  else launch()
+}
+
+function removeFromSelection(entry) {
+  selection.value = selection.value.filter(e => e.id !== entry.id)
+  if (!selection.value.length) step.value = 'pick'
 }
 
 const percent = computed(() => (current.value ? progressPercent(current.value) : null))
@@ -81,7 +90,15 @@ const expanded = reactive({})
 
     <!-- 2. Opciones -->
     <div v-else-if="step === 'options'" class="space-y-4">
-      <p class="text-sm text-foreground">{{ selection.length }} elemento(s) seleccionado(s).</p>
+      <div class="space-y-1.5">
+        <p class="text-sm text-foreground">{{ selection.length === 1 ? '1 elemento seleccionado' : `${selection.length} elementos seleccionados` }}:</p>
+        <ul class="max-h-40 overflow-y-auto rounded-control border border-card-line divide-y divide-card-line">
+          <li v-for="entry in selection" :key="entry.id" class="flex items-center justify-between gap-3 px-3 py-1.5 text-sm">
+            <span class="min-w-0 truncate text-foreground">{{ entry.name }}</span>
+            <button type="button" class="shrink-0 text-xs text-muted-foreground hover:text-red-600" @click="removeFromSelection(entry)">Quitar</button>
+          </li>
+        </ul>
+      </div>
 
       <div v-if="flags.hasNatives" class="space-y-2">
         <p class="text-sm font-medium text-foreground">Documentos de Google (Docs, Sheets, Slides)</p>
@@ -147,7 +164,8 @@ const expanded = reactive({})
         <span v-else />
         <div class="flex gap-2">
           <AppButton :text="step === 'progress' ? 'Cerrar' : 'Cancelar'" severity="secondary" size="sm" @click="close" />
-          <AppButton v-if="step === 'pick'" text="Siguiente" severity="primary" size="sm" :disabled="!selection.length" @click="next" />
+          <AppButton v-if="step === 'pick'" :text="needsOptions ? 'Siguiente' : 'Importar'" severity="primary" size="sm"
+            :disabled="!selection.length" :loading="start.isPending.value" @click="next" />
           <AppButton v-else-if="step === 'options'" text="Importar" severity="primary" size="sm"
             :disabled="!selection.length || blockedFolders" :loading="start.isPending.value" @click="launch" />
         </div>
