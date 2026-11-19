@@ -37,6 +37,14 @@ export default defineAppConfig({
     },
 
     /**
+     * Cambio de contraseña forzado (middleware 06.force-password.global). Opt-in:
+     *   forcePassword: { enabled: true, routes: { '/backoffice': '/backoffice/auth/change-password' } }
+     * `allow` (opcional): prefijos que siempre pasan (default: '<prefijo>/auth/').
+     * `undefined` a propósito (ver nota de `mode`): el producto lo define en su nuxt.config.
+     */
+    forcePassword: undefined as { enabled?: boolean; routes?: Record<string, string>; allow?: string[] } | undefined,
+
+    /**
      * Tema Preline. Cada tema define el "feel" completo (paleta neutral, fondos,
      * bordes, sombras) tanto en light como en dark mode. Es el equivalente a
      * "darkTone" pero más expresivo — distintos temas tienen distintos tonos.

@@ -7,29 +7,34 @@
  *   PATCH  notifications/read-all
  *   DELETE notifications/{id}
  *   DELETE notifications                            (borra las leídas)
+ *
+ * `base` (opcional): prefijo de las rutas. En /platform la campanita usa
+ * `useNotifications({ base: 'platform/notifications' })` (el producto monta
+ * \Innertia\Notifications\Routes::register('notifications') dentro de su grupo platform).
  */
-export function useNotifications() {
+export function useNotifications(options = {}) {
   const api = useApi()
   const store = useNotificationsStore()
+  const base = String(options.base || 'notifications').replace(/^\/+|\/+$/g, '')
 
   async function fetchNotifications(params = {}) {
-    const res = await api.get('notifications', { params })
+    const res = await api.get(base, { params })
     store.setNotifications(res?.data ?? [])
     return res
   }
 
   async function markAsRead(id) {
-    await api.patch(`notifications/${id}/read`)
+    await api.patch(`${base}/${id}/read`)
     store.markRead(id)
   }
 
   async function markAllAsRead() {
-    await api.patch('notifications/read-all')
+    await api.patch(`${base}/read-all`)
     store.markAllRead()
   }
 
   async function remove(id) {
-    await api.delete(`notifications/${id}`)
+    await api.delete(`${base}/${id}`)
     store.remove(id)
   }
 

@@ -15,34 +15,35 @@ import { historyParams, type HistoryFilter } from './internal/format'
  * también la campanita del producto (y viceversa) si comparte el QueryClient.
  * Nombre propio (no useNotifications) para no chocar con composables de producto.
  */
-export function useNotificationHistory() {
+export function useNotificationHistory(options: { base?: string } = {}) {
+  const base = String(options.base || 'notifications').replace(/^\/+|\/+$/g, '')
   const api = useApi()
   const queryClient = useQueryClient()
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
 
   const list = (opts: MaybeRefOrGetter<{ filter: HistoryFilter; page: number; perPage: number }>) => useQuery({
-    queryKey: computed(() => ['notifications', 'history', historyParams(toValue(opts))]),
-    queryFn: () => api.get('notifications', { params: historyParams(toValue(opts)) }),
+    queryKey: computed(() => ['notifications', 'history', base, historyParams(toValue(opts))]),
+    queryFn: () => api.get(base, { params: historyParams(toValue(opts)) }),
     placeholderData: (prev: any) => prev,
   })
 
   const markRead = () => useMutation({
-    mutationFn: (id: string) => api.patch(`notifications/${id}/read`),
+    mutationFn: (id: string) => api.patch(`${base}/${id}/read`),
     onSuccess: invalidate,
   })
 
   const markAllRead = () => useMutation({
-    mutationFn: () => api.patch('notifications/read-all'),
+    mutationFn: () => api.patch(`${base}/read-all`),
     onSuccess: invalidate,
   })
 
   const remove = () => useMutation({
-    mutationFn: (id: string) => api.delete(`notifications/${id}`),
+    mutationFn: (id: string) => api.delete(`${base}/${id}`),
     onSuccess: invalidate,
   })
 
   const removeRead = () => useMutation({
-    mutationFn: () => api.delete('notifications'),
+    mutationFn: () => api.delete(base),
     onSuccess: invalidate,
   })
 

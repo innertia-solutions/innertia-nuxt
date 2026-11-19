@@ -17,7 +17,9 @@ const props = withDefaults(defineProps<{
   perPage?: number
   /** Ruta destino al abrir una notificación; null = no navega. Default: data.link → data.url. */
   resolveLink?: (n: NotificationItem) => string | null | undefined
-}>(), { perPage: 20, resolveLink: undefined })
+  /** Prefijo de la API (en /platform: 'platform/notifications'). */
+  endpoint?: string
+}>(), { perPage: 20, resolveLink: undefined, endpoint: 'notifications' })
 
 const emit = defineEmits<{ (e: 'open', n: NotificationItem): void }>()
 
@@ -25,7 +27,7 @@ const filter = ref<HistoryFilter>('all')
 const page = ref(1)
 watch(filter, () => { page.value = 1 })
 
-const { list, markRead, markAllRead, remove, removeRead } = useNotificationHistory()
+const { list, markRead, markAllRead, remove, removeRead } = useNotificationHistory({ base: props.endpoint })
 const { data, isLoading, isError, refetch } = list(() => ({ filter: filter.value, page: page.value, perPage: props.perPage }))
 const { mutateAsync: doMarkRead } = markRead()
 const { mutate: doMarkAll, isPending: markingAll } = markAllRead()

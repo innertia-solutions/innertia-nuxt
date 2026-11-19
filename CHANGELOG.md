@@ -6,6 +6,8 @@ All notable changes to `@innertia-solutions/innertia-nuxt` are documented here.
 
 ### Added
 
+- Correos y notificaciones con marca (opt-in): `Notifications.Preferences` + `useNotificationPreferences()`, `Platform.Emails` (filtros por tipo, espacio y estado; motivo de los fallidos), `Platform.MailSettings` (versión pulida: validación por campo, cambios sin guardar, confirmar borrar key, prueba con vista previa), `Mail.BrandingPreview` y `Mail.BrandingSettings` (marca del espacio). Campanita e historial en platform con la prop `endpoint` (`useNotifications({ base })`, `useNotificationHistory({ base })`). Middleware `platform-owner` y `06.force-password.global` (apagado hasta `appConfig.innertia.forcePassword.enabled`). Ver `docs/correos-notificaciones.md`.
+
 - Passkeys (WebAuthn): composable `usePasskeys()`, componentes `Auth.PasskeyButton` (login tenant y `/platform`, con autocompletado), `Auth.PasskeyInvite`, `Auth.PasskeyManager` y `Auth.UserPasskeys`, y rutas BFF `/_auth/passkey/login` y `/_auth/platform/passkey/login` que sellan la sesión solo si hay token. Se activa y desactiva desde `/platform` con `Auth.PasskeySettings` (sin variables de entorno). Ver `docs/passkeys.md`.
 - `Kanban.Standard`: reordenamiento intra-columna con drag&drop (prop `reorderEndpoint`); orden por `position`, placeholder de inserción, y persistencia vía POST. Retrocompatible: sin la prop se comporta igual que antes (solo cross-column).
 

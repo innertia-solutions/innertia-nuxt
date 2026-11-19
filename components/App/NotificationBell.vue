@@ -8,12 +8,15 @@ import { IconBell, IconChecks, IconBellOff } from '@tabler/icons-vue'
  *
  * Backend: notification center de innertia-laravel (vía useNotifications).
  * `allRoute`: ruta de la vista "ver todas" (cada producto monta la suya).
+ * `endpoint`: prefijo de la API. En el layout de platform:
+ *   <App.NotificationBell endpoint="platform/notifications" all-route="/platform/notifications" />
  */
 const props = defineProps({
   allRoute: { type: String, default: '/backoffice/notifications' },
+  endpoint: { type: String, default: 'notifications' },
 })
 
-const { fetchNotifications, markAsRead, markAllAsRead } = useNotifications()
+const { fetchNotifications, markAsRead, markAllAsRead } = useNotifications({ base: props.endpoint })
 const store = useNotificationsStore()
 
 const tab = ref('all')            // all | unread
