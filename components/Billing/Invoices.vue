@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { IconFileInvoice, IconSend, IconDownload, IconCash, IconCheck } from '@tabler/icons-vue'
+import { IconFileInvoice, IconSend, IconDownload, IconCash, IconCheck, IconBan, IconRepeat, IconReceiptRefund, IconPercentage } from '@tabler/icons-vue'
 import {
-  formatMoney, invoiceStatus, periodLabel, formatDateTime, eventLabel, paymentMethodLabel, parseMoney, errorMessage,
-  INVOICE_STATUS_OPTIONS, type Invoice,
+  formatMoney, invoiceStatus, periodLabel, formatDate, formatDateTime, eventLabel, paymentMethodLabel, parseMoney, errorMessage,
+  reissuePayload, BILLING_FIELDS, INVOICE_STATUS_OPTIONS, type Invoice, type CorrectionLine,
 } from '../../composables/useBilling/internal/billing'
 
 /*
  * Billing.Invoices — platform invoices: filters, detail (statements and lines per space, bitácora,
  * payments), Emitir (folio optional, email to the billing contact), Reenviar, PDF and Registrar pago
- * (transfer registered by hand; the remainder stays as client credit).
+ * (transfer registered by hand; the remainder stays as client credit). Collections: Anular (reason), Refacturar
+ * (void + replacement with corrected billing data and correction lines; payments move over), Nota de crédito
+ * and Condonar interés por mora; the detail shows credit notes, late fee ranges and the void/reissue trail.
  * Backend: \Innertia\Billing\Routes::platform() + platformWrite().
  *
  *   <Billing.Invoices :clients="[{ value: id, label: name }]" />
@@ -106,6 +108,65 @@ async function submitPay() {
   }
 }
 
+// ── Collections: void, reissue, credit note, late fee waiver ─────────────
+const { prompt } = useModal()
+async function reloadDetail(i: Invoice) {
+  if (detail.value?.id === i.id) await openDetail(i)
+}
+async function voidInvoice(i: Invoice) {
+  const reason = await prompt({
+    title: `Anular factura ${i.display_number}`,
+    message: 'La factura queda anulada (no se borra). Lo pagado pasa a saldo a favor del cliente. Para corregirla usa Refacturar.',
+    required: true, confirmText: 'Anular',
+  })
+  if (!reason) return
+  try {
+    detail.value = await billing.voidInvoice.mutateAsync({ id: i.id, reason })
+    toast.success('Factura anulada.')
+  } catch (e: any) {
+    toast.error(errorMessage(e, 'No se pudo anular la factura.'))
+  }
+}
+
+const reissueForm = reactive({
+  open: false, invoice: null as Invoice | null, reason: '', billing_data: {} as Record<string, string>, original: {} as Record<string, string | null>,
+  lines: [] as CorrectionLine[], due_at: '', send: true,
+})
+function openReissue(i: Invoice) {
+  const data = Object.fromEntries(BILLING_FIELDS.map(f => [f.key, (i.billing_data?.[f.key] ?? '') as string]))
+  Object.assign(reissueForm, { open: true, invoice: i, reason: '', billing_data: { ...data }, original: { ...data }, lines: [], due_at: '', send: true })
+}
+async function submitReissue() {
+  const i = reissueForm.invoice
+  if (!i) return
+  const { payload, error } = reissuePayload(reissueForm)
+  if (error) { toast.error(error); return }
+  try {
+    const res = await billing.reissue.mutateAsync({ id: i.id, body: payload! })
+    reissueForm.open = false
+    detail.value = res
+    toast.success(`Factura ${i.display_number} anulada y reemplazada por ${res.display_number}.`)
+  } catch (e: any) {
+    toast.error(errorMessage(e, 'No se pudo refacturar.'))
+  }
+}
+
+async function waive(i: Invoice) {
+  const reason = await prompt({ title: 'Condonar interés por mora', message: `Factura ${i.display_number}: deja de generar interés y se devuelve el ya cobrado.`, required: true, confirmText: 'Condonar' })
+  if (!reason) return
+  try {
+    const res = await billing.waiveLateFees.mutateAsync({ id: i.id, reason })
+    toast.success(`Interés condonado: ${formatMoney(res.removed + res.credited)}.`)
+    await reloadDetail(i)
+  } catch (e: any) {
+    toast.error(errorMessage(e, 'No se pudo condonar el interés.'))
+  }
+}
+
+const creditNote = reactive({ open: false, invoice: null as Invoice | null })
+const isIssued = (i: Invoice) => ['issued', 'overdue', 'paid'].includes(i.status)
+const hasLateFees = (i: Invoice) => (i.late_fees ?? []).some(f => !f.waived_at) || i.status === 'overdue'
+
 const inputClass = 'w-full h-9 rounded-control border border-card-line bg-card text-sm text-foreground px-3 focus:outline-hidden focus:ring-2 focus:ring-primary/30'
 const isOpen = (i: Invoice) => i.status === 'issued' || i.status === 'overdue'
 </script>
@@ -201,6 +262,10 @@ const isOpen = (i: Invoice) => i.status === 'issued' || i.status === 'overdue'
         </div>
         <p v-if="detail.payment_link" class="text-xs">Enlace de pago: <a :href="detail.payment_link" target="_blank" rel="noopener" class="text-primary hover:underline break-all">{{ detail.payment_link }}</a></p>
 
+        <p v-if="detail.status === 'void'" class="text-xs text-danger">Anulada {{ formatDateTime(detail.voided_at) }}<template v-if="detail.void_reason"> · {{ detail.void_reason }}</template></p>
+        <p v-if="detail.replaces_invoice_id" class="text-xs text-muted-foreground">Reemplaza a una factura anulada (refacturación).</p>
+        <p v-if="detail.late_fees_waived_at" class="text-xs text-muted-foreground">Interés por mora condonado {{ formatDateTime(detail.late_fees_waived_at) }}.</p>
+
         <div v-if="loadingDetail" class="text-muted-foreground">Cargando detalle…</div>
         <template v-else>
           <div v-for="s in detail.statements ?? []" :key="s.id" class="border border-card-line rounded-control">
@@ -217,11 +282,28 @@ const isOpen = (i: Invoice) => i.status === 'issued' || i.status === 'overdue'
             </table>
           </div>
 
+          <div v-if="detail.credit_notes?.length">
+            <p class="text-xs font-medium text-muted-foreground mb-1">Notas de crédito</p>
+            <ul class="space-y-1 text-xs">
+              <li v-for="n in detail.credit_notes" :key="n.id">{{ n.display_number }} · {{ formatMoney(n.amount ?? 0, detail.currency) }} · {{ n.reason }}</li>
+            </ul>
+          </div>
+          <div v-if="detail.late_fees?.length">
+            <p class="text-xs font-medium text-muted-foreground mb-1">Interés por mora generado</p>
+            <ul class="space-y-1 text-xs">
+              <li v-for="(f, idx) in detail.late_fees" :key="idx" :class="f.waived_at ? 'line-through text-muted-foreground' : ''">
+                {{ formatDate(f.from) }} al {{ formatDate(f.to) }} · {{ f.days }} días sobre {{ formatMoney(f.base, detail.currency) }} · {{ formatMoney(f.amount, detail.currency) }}
+              </li>
+            </ul>
+          </div>
+
           <div v-if="detail.events?.length">
             <p class="text-xs font-medium text-muted-foreground mb-1">Bitácora</p>
             <ul class="space-y-1">
               <li v-for="(e, idx) in detail.events" :key="idx" class="text-xs text-muted-foreground">
-                {{ formatDateTime(e.created_at) }} · {{ eventLabel(e.event) }}<template v-if="e.data?.amount"> · {{ formatMoney(e.data.amount, detail.currency) }}</template>
+                {{ formatDateTime(e.created_at) }} · {{ eventLabel(e.event) }}<template v-if="e.data?.amount"> · {{ formatMoney(e.data.amount, detail.currency) }}</template><template v-if="e.data?.reason"> · {{ e.data.reason }}</template>
+                <template v-if="e.event === 'reissued' && e.data?.totals"> · total {{ formatMoney(e.data.totals.before.total, detail.currency) }} → {{ formatMoney(e.data.totals.after.total, detail.currency) }}</template>
+                <template v-if="e.event === 'reissued' && e.data?.billing_data && Object.keys(e.data.billing_data).length"> · cambió {{ Object.keys(e.data.billing_data).join(', ') }}</template>
               </li>
             </ul>
           </div>
@@ -232,6 +314,10 @@ const isOpen = (i: Invoice) => i.status === 'issued' || i.status === 'overdue'
           <App.Button v-if="canEdit && detail.status === 'draft'" text="Emitir" size="sm" severity="primary" :icon="IconCheck" @click="openIssue(detail)" />
           <App.Button v-if="canEdit && detail.status !== 'draft' && detail.status !== 'void'" text="Reenviar" size="sm" :icon="IconSend" :loading="billing.resend.isPending.value" @click="resend(detail)" />
           <App.Button v-if="canEdit && isOpen(detail)" text="Registrar pago" size="sm" :icon="IconCash" @click="openPay(detail)" />
+          <App.Button v-if="canEdit && isOpen(detail)" text="Nota de crédito" size="sm" :icon="IconReceiptRefund" @click="creditNote.invoice = detail; creditNote.open = true" />
+          <App.Button v-if="canEdit && isIssued(detail) && hasLateFees(detail) && !detail.late_fees_waived_at" text="Condonar interés" size="sm" :icon="IconPercentage" :loading="billing.waiveLateFees.isPending.value" @click="waive(detail)" />
+          <App.Button v-if="canEdit && isIssued(detail)" text="Refacturar" size="sm" :icon="IconRepeat" @click="openReissue(detail)" />
+          <App.Button v-if="canEdit && isIssued(detail)" text="Anular" size="sm" outline :icon="IconBan" :loading="billing.voidInvoice.isPending.value" @click="voidInvoice(detail)" />
           <App.Button text="PDF" size="sm" outline :icon="IconDownload" @click="pdf(detail)" />
         </template>
         <App.Button text="Cerrar" size="sm" @click="detail = null" />
@@ -250,6 +336,43 @@ const isOpen = (i: Invoice) => i.status === 'issued' || i.status === 'overdue'
         <App.Button text="Emitir" severity="primary" size="sm" :loading="billing.issue.isPending.value" @click="submitIssue" />
       </template>
     </Modal>
+
+    <!-- Reissue -->
+    <Modal v-model="reissueForm.open" :title="reissueForm.invoice ? `Refacturar ${reissueForm.invoice.display_number}` : ''" size="2xl" show-footer>
+      <div v-if="reissueForm.invoice" class="space-y-3 text-sm">
+        <p class="text-muted-foreground">La factura se anula y se emite otra con número nuevo. Los pagos aplicados pasan a la nueva y todo queda en la bitácora.</p>
+        <label class="block space-y-1"><span class="font-medium">Motivo (obligatorio)</span><input v-model="reissueForm.reason" :class="inputClass" maxlength="250" /></label>
+        <p class="font-medium">Datos de facturación</p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label v-for="f in BILLING_FIELDS" :key="f.key" class="block space-y-1"><span class="text-xs text-muted-foreground">{{ f.label }}</span>
+            <input v-model="reissueForm.billing_data[f.key]" :class="inputClass" maxlength="250" />
+          </label>
+        </div>
+        <div class="space-y-2">
+          <div class="flex items-center"><p class="font-medium flex-1">Correcciones (monto neto, negativo para rebajar)</p>
+            <App.Button text="Agregar línea" size="xs" @click="reissueForm.lines.push({ description: '', amount: '' })" />
+          </div>
+          <div v-for="(l, idx) in reissueForm.lines" :key="idx" class="flex gap-2">
+            <input v-model="l.description" :class="inputClass" placeholder="Descripción" maxlength="200" />
+            <input v-model="l.amount" :class="inputClass" class="max-w-40" inputmode="numeric" placeholder="-10000" />
+            <App.Button text="Quitar" size="xs" outline @click="reissueForm.lines.splice(idx, 1)" />
+          </div>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="block space-y-1"><span class="font-medium">Nuevo vencimiento (opcional)</span><input v-model="reissueForm.due_at" type="date" :class="inputClass" />
+            <span class="text-xs text-muted-foreground">Vacío = mantiene el vencimiento original.</span>
+          </label>
+          <label class="flex items-center gap-2 self-center"><input v-model="reissueForm.send" type="checkbox" class="rounded" /> Enviar la nueva factura por correo</label>
+        </div>
+      </div>
+      <template #footer>
+        <App.Button text="Cancelar" size="sm" @click="reissueForm.open = false" />
+        <App.Button text="Anular y reemitir" severity="primary" size="sm" :loading="billing.reissue.isPending.value" @click="submitReissue" />
+      </template>
+    </Modal>
+
+    <Billing.CreditNoteForm v-if="creditNote.invoice" v-model="creditNote.open" :endpoint="endpoint" :client-id="creditNote.invoice.client_id" :invoice="creditNote.invoice"
+      @created="detail && openDetail(detail)" />
 
     <!-- Payment -->
     <Modal v-model="payForm.open" title="Registrar pago" size="md" show-footer>

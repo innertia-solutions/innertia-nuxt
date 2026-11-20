@@ -9,12 +9,13 @@ import {
  * Billing.Overview — "Facturación" of the backoffice (permission billing.view), read-only: plan and
  * status, consumption of the current period vs included with the estimate, invoices (PDF, due date,
  * "Pagar" when there is a payment link; in consolidated invoices, this space's part) and payments.
+ * With `show-account` (default) it ends with the space's account statement (charges, credits, aging).
  * Testing spaces only show the "Espacio de pruebas" strip.
  * Backend: \Innertia\Billing\Routes::backoffice() → GET {endpoint}/overview|invoices|payments.
  *
  *   <Billing.Overview />
  */
-const props = withDefaults(defineProps<{ endpoint?: string }>(), { endpoint: 'billing' })
+const props = withDefaults(defineProps<{ endpoint?: string; showAccount?: boolean }>(), { endpoint: 'billing', showAccount: true })
 
 const toast = useToast()
 const { base, overview, invoices, payments } = useBillingSpace({ base: props.endpoint })
@@ -118,6 +119,11 @@ async function pdf(i: Invoice) {
             <span class="font-medium">{{ formatMoney(p.amount) }}</span>
           </li>
         </ul>
+      </div>
+
+      <div v-if="showAccount && data.subscription" class="space-y-2">
+        <p class="text-sm font-medium text-foreground">Estado de cuenta</p>
+        <Billing.AccountStatement mode="space" :endpoint="endpoint" />
       </div>
     </template>
   </div>
