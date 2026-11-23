@@ -53,6 +53,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   assistant: 'Asistente',
   tts: 'Voz (TTS)',
   voice_agent: 'Agente de voz',
+  flow_builder: 'Asistente de flujos',
   import_pdf: 'Importación de PDF',
   chat: 'Chat',
   embedding: 'Embeddings',
