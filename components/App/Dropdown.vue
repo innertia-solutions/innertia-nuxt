@@ -73,6 +73,19 @@ const triggerId = ref(
   `dropdown-trigger-${Math.random().toString(36).substr(2, 9)}`
 );
 
+// Self-initialize: a dropdown mounted after Preline's global autoInit (v-if, async data, client
+// toggles) would otherwise render but never open.
+const wrapperEl = ref(null);
+onMounted(() => {
+  nextTick(() => {
+    const HSDropdown = window.HSDropdown;
+    if (!wrapperEl.value || !HSDropdown) return;
+    try {
+      if (!HSDropdown.getInstance?.(wrapperEl.value, true)) HSDropdown.autoInit?.();
+    } catch (_) {}
+  });
+});
+
 // Computed
 const triggerSizeClasses = computed(() => {
   const sizes = {
@@ -200,7 +213,7 @@ const handleItemClick = (item, event) => {
 };
 </script>
 <template>
-  <div class="hs-dropdown relative inline-flex" :class="wrapperClass">
+  <div ref="wrapperEl" class="hs-dropdown relative inline-flex" :class="wrapperClass">
     <!-- Trigger button -->
     <button
       :id="triggerId"

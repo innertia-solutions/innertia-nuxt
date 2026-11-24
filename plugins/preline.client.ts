@@ -48,7 +48,9 @@ export default defineNuxtPlugin(async () => {
           if (node.nodeType !== Node.ELEMENT_NODE) return false
           const el = node as Element
           return (
-            el.querySelector?.('[data-hs-overlay],[data-hs-dropdown],[data-hs-select]') ||
+            // Class-based components (e.g. App.Dropdown's `.hs-dropdown`) nested inside a newly added
+            // wrapper must be detected too, not only when the added node itself carries the class.
+            el.querySelector?.('[data-hs-overlay],[data-hs-dropdown],[data-hs-select],.hs-dropdown,.hs-overlay,.hs-select,.hs-tooltip,.hs-accordion,.hs-collapse') ||
             el.hasAttribute?.('data-hs-overlay') ||
             el.hasAttribute?.('data-hs-dropdown') ||
             el.hasAttribute?.('data-hs-select') ||
