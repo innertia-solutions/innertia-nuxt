@@ -15,6 +15,7 @@ All notable changes to `@innertia-solutions/innertia-nuxt` are documented here.
 
 ### Fixed
 
+- `Forms.Select`: el desplegable se abre hacia arriba cuando no cabe abajo (`dropdownAutoPlacement`); antes quedaba cortado por el borde inferior de la ventana.
 - Sesión: renovación deslizante del JWT en el BFF. Cuando al token le quedan menos de 10 min (o menos de 1/3 de su vida), `/api/**` y el SSR lo renuevan contra `POST auth/refresh` y reescriben la cookie sellada; refrescos concurrentes se deduplican y los requests tardíos con el token viejo reciben el nuevo; un refresh fallido no se reintenta con ese token por 30 s (timeout de 5 s). Con uso activo la sesión ya no muere a los 60 min fijos. No aplica a tokens de plataforma. Configurable con `runtimeConfig.authRefresh` (`NUXT_AUTH_REFRESH_ENABLED`, `NUXT_AUTH_REFRESH_PATH`).
 - `useApi`: ante un 401, las mutaciones del cliente (POST/PUT/PATCH/DELETE) ahora **lanzan** un error `{ status: 401, data: { message } }` en vez de devolver `null` (antes `useMutation` lo tomaba como éxito y mostraba "Guardado" sin guardar). GET y las llamadas SSR siguen devolviendo `null`. Override por llamada con `{ throwOnUnauthorized: true|false }`. Además muestra un aviso "Tu sesión expiró" (una vez) y, al lanzar, no espera la navegación al login para que el llamador muestre el error antes de las guardas de "cambios sin guardar".
 - `useForm`: el error de un campo se borra al cambiar su valor (antes quedaba "Este campo es obligatorio" bajo un campo ya completado hasta el siguiente envío).

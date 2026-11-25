@@ -40,6 +40,8 @@ const hsConfig = computed(() => JSON.stringify({
   placeholder: emptyLabel.value,
   ...(props.clearable ? { optionAllowEmptyOption: true } : {}),
   dropdownScope: 'window',
+  // Flip upwards when there is no room below (otherwise the panel is cut by the viewport).
+  dropdownAutoPlacement: true,
   toggleTag: '<button type="button" aria-expanded="false"></button>',
   toggleClasses: 'innertia-field hs-select-disabled:pointer-events-none hs-select-disabled:opacity-50 relative pe-9 flex gap-x-2 items-center text-nowrap cursor-pointer text-start',
   dropdownClasses: 'z-[10000] w-full max-h-72 py-1 bg-[color:var(--field-dropdown-bg)] border border-[color:var(--field-border)] rounded-control overflow-hidden overflow-y-auto shadow-lg',
@@ -202,5 +204,6 @@ const handleChange = (e: Event) => {
  * Con `dropdownScope:'window'` Preline teletransporta el panel del dropdown al
  * <body> y lo posiciona con floating-ui (fixed + offset). Así escapa el overflow
  * de cualquier contenedor con scroll (modales, paneles, etc.) y flota por encima.
+ * `dropdownAutoPlacement` agrega el middleware flip: si no cabe abajo, abre hacia arriba.
  */
 </style>
